@@ -6,6 +6,7 @@
   "author": "",
   "license": "MIT",
   "scripts": {
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
     "dev:electron": "npm run build:main && wait-on http://127.0.0.1:5173 -t 30000 && electron .",
     "rebuild:electron": "electron-rebuild -f -w better-sqlite3",

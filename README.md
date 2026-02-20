@@ -17,6 +17,7 @@ A local-first Electron desktop application for tailoring resumes to job descript
 
 - **Node.js 18+** (Node 20 LTS recommended; avoids ClangCL on Windows)
 - npm
+- **Windows (for database):** [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the **“Desktop development with C++”** workload. Required so `better-sqlite3` can compile for Electron. Without it, you’ll see “Database initialization failed” / “Please ensure better-sqlite3 is compiled” after a fresh `npm install`.
 
 ### Setup (first time or after clone)
 
@@ -24,11 +25,13 @@ A local-first Electron desktop application for tailoring resumes to job descript
 npm install
 ```
 
-**If you use Electron and need the database:** rebuild the native module for Electron (required once per `npm install`):
+A **postinstall** script runs `electron-rebuild` for `better-sqlite3` so the database works with Electron. If you still get a database/compilation error (e.g. after deleting `node_modules`), run:
 
 ```bash
 npm run rebuild:electron
 ```
+
+If that fails, install the C++ build tools above and try again.
 
 ### Run in Development
 
