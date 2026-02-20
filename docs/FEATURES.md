@@ -1,0 +1,53 @@
+# Feature Documentation Index
+
+This directory contains documentation for individual features and enhancements to the Resume Tailor app.
+
+## Structure
+
+Feature documentation is organized by feature name in the `features/` subdirectory. Each feature should have its own implementation plan document.
+
+## Current Features
+
+### Implemented Features
+- **Core MVP** - See `PRD.md`, `TRD.md`, and `IMPLEMENTATION.md` for the main application features
+
+### Completed Features
+- **[QA Feature](./features/QA_FEATURE_2026-02-16.md)** ✅ - Questions & Answers PDF generation (v0.2.0)
+
+### Planned/In Progress Features
+- **[Multi-Profile Generation](./features/MULTI_PROFILE_GENERATION_2026-02-16.md)** 📋 - Select multiple profiles and generate one tailored resume per profile
+
+## Adding New Features
+
+When planning a new feature:
+
+1. Create a new markdown file in `docs/features/` directory
+2. Use naming convention: `FEATURE_NAME_YYYY-MM-DD.md` (e.g., `QA_FEATURE_2026-02-16.md`, `BULK_GENERATION_2026-03-01.md`)
+   - Include the creation date in `YYYY-MM-DD` format for easy tracking
+3. Follow the template structure (see below)
+4. Update this index file to include the new feature
+
+## Feature Document Template
+
+Each feature document should include:
+
+1. **Overview** - Brief description of the feature
+2. **Requirements** - What the feature should do
+3. **Technical Approach** - How it will be implemented
+4. **Implementation Checklist** - Step-by-step tasks
+5. **Database Changes** - Schema migrations if needed
+6. **API Changes** - IPC/type changes
+7. **UI Changes** - Frontend modifications
+8. **Testing Plan** - How to verify the feature works
+9. **Backward Compatibility** - Impact on existing functionality
+
+## Feature Status
+
+- 📋 **Planned** - Feature is documented but not started
+- 🚧 **In Progress** - Feature is being implemented
+- ✅ **Completed** - Feature is implemented and tested
+- 🔄 **On Hold** - Feature implementation is paused
+
+---
+
+Last updated: 2026-02-16
