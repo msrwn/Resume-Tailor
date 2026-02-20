@@ -25,6 +25,7 @@ export type Profile = {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  applicant_id?: string | null;
 };
 
 export type Job = {
@@ -33,6 +34,8 @@ export type Job = {
   jd_text: string;
   jd_hash: string;
   source_url: string | null;
+  normalized_url: string | null;
+  platform_id: string | null;
   company_name: string | null;
   job_title: string | null;
   job_type: string | null;

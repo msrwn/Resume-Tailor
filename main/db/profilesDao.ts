@@ -87,6 +87,7 @@ export function updateProfile(profileId: string, data: Partial<{
   rules_text: string;
   template_html: string;
   is_default: boolean;
+  applicant_id: string | null;
 }>): Profile {
   const db = getDatabase();
   const now = new Date().toISOString();
@@ -130,6 +131,14 @@ export function updateProfile(profileId: string, data: Partial<{
     now,
     profileId
   );
+
+  if (data.applicant_id !== undefined) {
+    db.prepare('UPDATE profiles SET applicant_id = ?, updated_at = ? WHERE profile_id = ?').run(
+      data.applicant_id,
+      now,
+      profileId
+    );
+  }
 
   return getProfile(profileId)!;
 }

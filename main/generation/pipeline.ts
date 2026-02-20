@@ -34,8 +34,12 @@ import { buildQAHtml } from '../pdf/qaHtml';
 import { renderHtmlToPdf } from '../pdf/pdfRenderer';
 import * as fs from 'fs';
 import path from 'path';
+import { normalizeJobUrl } from '../../shared/jobUrl';
 import type { CallAOutput, CallBOutput, GenerationProfileResult } from '../../shared/types';
 import type { GenerationStep } from '../../shared/types';
+import type { Job } from '../../shared/types';
+import type { Generation } from '../../shared/types';
+import type { Profile } from '../../shared/types';
 
 export type ProgressCallback = (step: GenerationStep, message: string, percent: number) => void;
 
@@ -65,6 +69,78 @@ function mapCallAToJobUpdate(_jobId: string, out: CallAOutput): Parameters<typeo
     follow_up_links_json: Array.isArray(followUpLinks) ? JSON.stringify(followUpLinks.slice(0, 5)) : null,
     contact_source_text: Array.isArray(snippets) ? snippets.join('\n') : null,
   };
+}
+
+/**
+ * Write job.json to output folder (job meta + Q&A from Call B). Apply Automation feature.
+ */
+function writeJobJson(
+  outputDir: string,
+  job: Job,
+  qa: Array<{ question: string; answer: string }> | undefined
+): void {
+  const now = new Date().toISOString();
+  const payload = {
+    schemaVersion: '1.0',
+    createdAt: now,
+    jobId: job.job_id,
+    jobMeta: {
+      companyName: job.company_name ?? null,
+      jobTitle: job.job_title ?? null,
+      jobType: job.job_type ?? null,
+      sourceUrl: job.source_url ?? null,
+    },
+    qa: Array.isArray(qa) && qa.length > 0 ? qa : [],
+  };
+  const filePath = path.join(outputDir, 'job.json');
+  fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf-8');
+}
+
+/**
+ * Write autofill_data.json only when job has source_url and normalized_url. No PII. Apply Automation feature.
+ */
+function writeAutofillDataJson(
+  outputDir: string,
+  job: Job,
+  gen: Generation,
+  profile: Profile,
+  paths: { resumePdfPath: string; coverPdfPath: string; jdTxtPath: string; qaPdfPath: string | null }
+): void {
+  if (!job.source_url || !job.normalized_url) return;
+  try {
+    const hostname = new URL(job.normalized_url).hostname;
+    const now = new Date().toISOString();
+    const payload = {
+      schemaVersion: '1.0',
+      createdAt: now,
+      generation: {
+        generationId: gen.generation_id,
+        jobId: job.job_id,
+        profileId: profile.profile_id,
+        profileName: profile.name,
+      },
+      match: {
+        sourceUrl: job.source_url,
+        normalizedUrl: job.normalized_url,
+        platformId: job.platform_id ?? 'other',
+        hostname,
+      },
+      files: {
+        outputDir: path.resolve(outputDir),
+        resumePdfPath: path.resolve(paths.resumePdfPath),
+        coverPdfPath: path.resolve(paths.coverPdfPath),
+        qaPdfPath: paths.qaPdfPath ? path.resolve(paths.qaPdfPath) : null,
+      },
+      jobMeta: {
+        companyName: job.company_name ?? null,
+        jobTitle: job.job_title ?? null,
+      },
+    };
+    const filePath = path.join(outputDir, 'autofill_data.json');
+    fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf-8');
+  } catch (e) {
+    if (process.env.NODE_ENV !== 'production') console.warn('[Pipeline] Could not write autofill_data.json:', e);
+  }
 }
 
 /** Config type for pipeline (subset we need in helpers). */
@@ -261,6 +337,18 @@ async function runOneProfileGeneration(params: {
       jd_txt_path: jdTxtPath,
       qa_pdf_path: qaPdfPath,
     });
+
+    try {
+      writeJobJson(dirResult.outputDir, job, callBResult.json.qa);
+      writeAutofillDataJson(dirResult.outputDir, job, gen, profile, {
+        resumePdfPath: resumePdfPath!,
+        coverPdfPath: coverPdfPath!,
+        jdTxtPath: jdTxtPath!,
+        qaPdfPath,
+      });
+    } catch (e) {
+      if (process.env.NODE_ENV !== 'production') console.warn('[Pipeline] Could not write job.json/autofill_data.json:', e);
+    }
   } catch (pdfError) {
     const errMsg = pdfError instanceof Error ? pdfError.message : String(pdfError);
     generationsDao.markGenerationFailed(gen.generation_id, {
@@ -423,6 +511,14 @@ export async function runFullGeneration(params: {
     return { success: false, error: 'JD text is required' };
   }
 
+  const { normalizedUrl } = normalizeJobUrl(params.sourceUrl);
+  if (normalizedUrl === null && (params.sourceUrl ?? '').trim() !== '') {
+    return { success: false, error: 'Job URL is invalid. Please enter a valid http(s) URL.' };
+  }
+  if (!params.sourceUrl?.trim()) {
+    return { success: false, error: 'Job URL is required for generation.' };
+  }
+
   // Multi-profile: one job, one Call A, then one generation per profile
   if (profileIds.length > 1) {
     const firstProfile = profilesDao.getProfile(profileIds[0]);
@@ -456,6 +552,11 @@ export async function runFullGeneration(params: {
     }
     emit('extracting_jd', 'Saving extracted data...', 25);
     jobsDao.updateJobExtraction(jobId, mapCallAToJobUpdate(jobId, callAResult.json));
+    const jobAfterExtraction = jobsDao.getJob(jobId)!;
+    if (jobAfterExtraction.source_url) {
+      const { normalizedUrl, platformId } = normalizeJobUrl(jobAfterExtraction.source_url);
+      jobsDao.updateJobMatchFields(jobId, { normalized_url: normalizedUrl, platform_id: platformId });
+    }
     const updatedJob = jobsDao.getJob(jobId)!;
     const results: GenerationProfileResult[] = [];
     for (let i = 0; i < profileIds.length; i++) {
@@ -522,6 +623,11 @@ export async function runFullGeneration(params: {
 
   emit('extracting_jd', 'Saving extracted data...', 25);
   jobsDao.updateJobExtraction(jobId, mapCallAToJobUpdate(jobId, callAResult.json));
+  const jobAfterExtraction = jobsDao.getJob(jobId)!;
+  if (jobAfterExtraction.source_url) {
+    const { normalizedUrl, platformId } = normalizeJobUrl(jobAfterExtraction.source_url);
+    jobsDao.updateJobMatchFields(jobId, { normalized_url: normalizedUrl, platform_id: platformId });
+  }
   const updatedJob = jobsDao.getJob(jobId)!;
 
   const baseFolder = computeBaseFolder();
@@ -743,6 +849,18 @@ export async function runFullGeneration(params: {
       jd_txt_path: jdTxtPath,
       qa_pdf_path: qaPdfPath,
     });
+
+    try {
+      writeJobJson(dirResult.outputDir, updatedJob, callBResult.json.qa);
+      writeAutofillDataJson(dirResult.outputDir, updatedJob, gen, profile, {
+        resumePdfPath: resumePdfPath!,
+        coverPdfPath: coverPdfPath!,
+        jdTxtPath: jdTxtPath!,
+        qaPdfPath,
+      });
+    } catch (e) {
+      if (process.env.NODE_ENV !== 'production') console.warn('[Pipeline] Could not write job.json/autofill_data.json:', e);
+    }
   } catch (pdfError) {
     const errMsg = pdfError instanceof Error ? pdfError.message : String(pdfError);
     generationsDao.markGenerationFailed(gen.generation_id, {

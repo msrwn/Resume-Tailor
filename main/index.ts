@@ -8,8 +8,10 @@ import { seedDefaultProfile } from './db/seed';
 import * as profilesDao from './db/profilesDao';
 import * as jobsDao from './db/jobsDao';
 import * as generationsDao from './db/generationsDao';
+import * as applicantDao from './db/applicantDao';
 import { runGenerationCallAOnly, runFullGeneration } from './generation/pipeline';
 import { disposePdfWindow } from './pdf/pdfRenderer';
+import { startAutofillServer, stopAutofillServer } from './autofillServer';
 import type { AppConfig, GenerationStep } from '../shared/types';
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -60,6 +62,8 @@ app.whenReady().then(() => {
 
   createWindow();
 
+  startAutofillServer();
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -75,6 +79,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  stopAutofillServer();
   disposePdfWindow();
   closeDatabase();
 });
@@ -264,6 +269,88 @@ ipcMain.handle('profiles:validate', (_event, data: { rules_text: string; templat
       valid: errors.length === 0,
       errors,
     };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Applicant (autofill) IPC handlers
+ipcMain.handle('applicant:getByProfile', (_event, profileId: string) => {
+  try {
+    const profile = profilesDao.getProfile(profileId);
+    if (!profile || !profile.applicant_id) {
+      return { success: true, applicant: null, answers: {} };
+    }
+    const applicant = applicantDao.getApplicantProfile(profile.applicant_id);
+    if (!applicant) {
+      return { success: true, applicant: null, answers: {} };
+    }
+    const answers = applicantDao.getAutofillAnswers(profile.applicant_id);
+    return {
+      success: true,
+      applicant: {
+        firstName: applicant.first_name ?? '',
+        lastName: applicant.last_name ?? '',
+        email: applicant.email ?? '',
+        phone: applicant.phone ?? '',
+        address1: applicant.address1 ?? '',
+        address2: applicant.address2 ?? '',
+        city: applicant.city ?? '',
+        state: applicant.state ?? '',
+        zip: applicant.zip ?? '',
+        country: applicant.country ?? '',
+      },
+      answers,
+    };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+type ApplicantSavePayload = {
+  applicant: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    address1: string;
+    address2: string;
+    city: string;
+    state: string;
+    zip: string;
+    country: string;
+  };
+  answers: Record<string, string>;
+};
+
+ipcMain.handle('applicant:save', (_event, profileId: string, payload: ApplicantSavePayload) => {
+  try {
+    const profile = profilesDao.getProfile(profileId);
+    if (!profile) {
+      return { success: false, error: 'Profile not found' };
+    }
+    const data = {
+      first_name: payload.applicant.firstName.trim() || null,
+      last_name: payload.applicant.lastName.trim() || null,
+      email: payload.applicant.email.trim() || null,
+      phone: payload.applicant.phone.trim() || null,
+      address1: payload.applicant.address1.trim() || null,
+      address2: payload.applicant.address2.trim() || null,
+      city: payload.applicant.city.trim() || null,
+      state: payload.applicant.state.trim() || null,
+      zip: payload.applicant.zip.trim() || null,
+      country: payload.applicant.country.trim() || null,
+    };
+    let applicantId = profile.applicant_id ?? null;
+    if (applicantId) {
+      applicantDao.updateApplicantProfile(applicantId, data);
+    } else {
+      applicantId = applicantDao.createApplicantProfile(data);
+      profilesDao.updateProfile(profileId, { applicant_id: applicantId });
+    }
+    applicantDao.setAutofillAnswers(applicantId, payload.answers);
+    const updated = profilesDao.getProfile(profileId);
+    return { success: true, profile: updated };
   } catch (error) {
     return { success: false, error: String(error) };
   }

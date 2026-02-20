@@ -53,6 +53,8 @@ export function updateJobExtraction(jobId: string, data: {
   contact_phone?: string | null;
   follow_up_links_json?: string | null;
   contact_source_text?: string | null;
+  normalized_url?: string | null;
+  platform_id?: string | null;
 }): Job {
   const db = getDatabase();
   const stmt = db.prepare(`
@@ -66,7 +68,9 @@ export function updateJobExtraction(jobId: string, data: {
         contact_email = COALESCE(?, contact_email),
         contact_phone = COALESCE(?, contact_phone),
         follow_up_links_json = COALESCE(?, follow_up_links_json),
-        contact_source_text = COALESCE(?, contact_source_text)
+        contact_source_text = COALESCE(?, contact_source_text),
+        normalized_url = COALESCE(?, normalized_url),
+        platform_id = COALESCE(?, platform_id)
     WHERE job_id = ?
   `);
 
@@ -81,9 +85,26 @@ export function updateJobExtraction(jobId: string, data: {
     data.contact_phone ?? null,
     data.follow_up_links_json ?? null,
     data.contact_source_text ?? null,
+    data.normalized_url ?? null,
+    data.platform_id ?? null,
     jobId
   );
 
+  return getJob(jobId)!;
+}
+
+/**
+ * Update job with match fields (normalized_url, platform_id). Used before saving a generation when source_url is present.
+ */
+export function updateJobMatchFields(
+  jobId: string,
+  data: { normalized_url: string | null; platform_id: string | null }
+): Job {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    UPDATE jobs SET normalized_url = ?, platform_id = ? WHERE job_id = ?
+  `);
+  stmt.run(data.normalized_url, data.platform_id, jobId);
   return getJob(jobId)!;
 }
 

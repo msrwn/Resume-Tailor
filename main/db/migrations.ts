@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 
-const CURRENT_VERSION = 2;
+const CURRENT_VERSION = 3;
 
 /**
  * Run all migrations up to current version.
@@ -14,6 +14,10 @@ export function runMigrations(db: Database.Database): void {
 
   if (currentVersion < 2) {
     migration2_addQaPdfPath(db);
+  }
+
+  if (currentVersion < 3) {
+    migration3_applyAutomation(db);
   }
 }
 
@@ -117,4 +121,54 @@ function migration2_addQaPdfPath(db: Database.Database): void {
   }
 
   db.pragma(`user_version = 2`);
+}
+
+/**
+ * Migration 3: Apply Automation (applicant_profiles, autofill_answers, profiles.applicant_id, jobs.normalized_url/platform_id)
+ */
+function migration3_applyAutomation(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS applicant_profiles (
+      applicant_id TEXT PRIMARY KEY,
+      name TEXT,
+      first_name TEXT,
+      last_name TEXT,
+      email TEXT,
+      phone TEXT,
+      address1 TEXT,
+      address2 TEXT,
+      city TEXT,
+      state TEXT,
+      zip TEXT,
+      country TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS autofill_answers (
+      applicant_id TEXT NOT NULL,
+      key TEXT NOT NULL,
+      value TEXT,
+      updated_at TEXT,
+      PRIMARY KEY (applicant_id, key)
+    );
+  `);
+
+  const profilesInfo = db.prepare('PRAGMA table_info(profiles)').all() as Array<{ name: string }>;
+  if (!profilesInfo.some((c) => c.name === 'applicant_id')) {
+    db.exec('ALTER TABLE profiles ADD COLUMN applicant_id TEXT');
+  }
+
+  let jobsInfo = db.prepare('PRAGMA table_info(jobs)').all() as Array<{ name: string }>;
+  if (!jobsInfo.some((c) => c.name === 'normalized_url')) {
+    db.exec('ALTER TABLE jobs ADD COLUMN normalized_url TEXT');
+  }
+  jobsInfo = db.prepare('PRAGMA table_info(jobs)').all() as Array<{ name: string }>;
+  if (!jobsInfo.some((c) => c.name === 'platform_id')) {
+    db.exec('ALTER TABLE jobs ADD COLUMN platform_id TEXT');
+  }
+
+  db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_normalized_url ON jobs(normalized_url)');
+
+  db.pragma('user_version = 3');
 }

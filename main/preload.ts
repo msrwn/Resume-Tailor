@@ -50,6 +50,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
   profilesValidate: (data: { rules_text: string; template_html: string }) =>
     ipcRenderer.invoke('profiles:validate', data) as Promise<{ success: boolean; valid?: boolean; errors?: string[]; error?: string }>,
 
+  // Applicant (autofill data per profile)
+  applicantGetByProfile: (profileId: string) =>
+    ipcRenderer.invoke('applicant:getByProfile', profileId) as Promise<{
+      success: boolean;
+      applicant?: {
+        firstName: string;
+        lastName: string;
+        email: string;
+        phone: string;
+        address1: string;
+        address2: string;
+        city: string;
+        state: string;
+        zip: string;
+        country: string;
+      } | null;
+      answers?: Record<string, string>;
+      error?: string;
+    }>,
+  applicantSave: (profileId: string, payload: {
+    applicant: { firstName: string; lastName: string; email: string; phone: string; address1: string; address2: string; city: string; state: string; zip: string; country: string };
+    answers: Record<string, string>;
+  }) =>
+    ipcRenderer.invoke('applicant:save', profileId, payload) as Promise<{ success: boolean; profile?: Profile; error?: string }>,
+
   // Jobs
   jobsGet: (jobId: string) =>
     ipcRenderer.invoke('jobs:get', jobId) as Promise<{ success: boolean; job?: Job | null; error?: string }>,

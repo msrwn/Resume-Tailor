@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Profile, Job, CallAOutput, CallBOutput } from '@shared/types';
+import { normalizeJobUrl } from '@shared/jobUrl';
 
 const MAX_TASKS = 10;
 
@@ -159,9 +160,12 @@ function GenerateScreen() {
   }, []);
 
   const activeTask = taskState[activeTaskIndex] ?? taskState[1];
+  const hasValidJobUrl = (url: string) => normalizeJobUrl(url?.trim()).normalizedUrl !== null;
   const canGenerate =
     activeTask &&
     activeTask.jdText.trim().length > 0 &&
+    activeTask.sourceUrl.trim().length > 0 &&
+    hasValidJobUrl(activeTask.sourceUrl) &&
     selectedProfileIds.length > 0 &&
     outputPathSet &&
     apiKeySet &&
@@ -413,7 +417,7 @@ function GenerateScreen() {
       >
         {activeTask && (
           <div className="generate-form">
-            <label>Job posting URL (optional)</label>
+            <label>Job posting URL <span className="required">*</span></label>
             <input
               type="url"
               className="generate-url-input"
@@ -422,6 +426,12 @@ function GenerateScreen() {
               onChange={(e) => updateTaskState(activeTaskIndex, { sourceUrl: e.target.value })}
               disabled={activeTask.loading}
             />
+            {activeTask.sourceUrl.trim() === '' && (
+              <p className="generate-url-hint message message-warning">Job URL is required for generation.</p>
+            )}
+            {activeTask.sourceUrl.trim() !== '' && !hasValidJobUrl(activeTask.sourceUrl) && (
+              <p className="generate-url-hint message message-error">Please enter a valid http(s) URL.</p>
+            )}
 
             <label>
               Job description <span className="required">*</span>
@@ -508,88 +518,92 @@ function GenerateScreen() {
                 <p className="result-hint">View and open PDFs from the History screen.</p>
               </>
             ) : (
-              <>
-                <h2>Generation complete</h2>
-                <p className="result-summary">
-                  Resume and cover letter PDFs and JD.txt have been saved to the output folder.
-                </p>
-                {(activeTask.result.outputDir || activeTask.result.resumePdfPath) && (
-                  <div className="result-actions">
-                    {activeTask.result.outputDir && (
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => window.electronAPI.filesOpenFolder(activeTask.result!.outputDir!)}
-                      >
-                        Open folder
-                      </button>
-                    )}
-                    {activeTask.result.resumePdfPath && (
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => window.electronAPI.filesOpenFile(activeTask.result!.resumePdfPath!)}
-                      >
-                        Open resume PDF
-                      </button>
-                    )}
-                    {activeTask.result.coverPdfPath && (
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => window.electronAPI.filesOpenFile(activeTask.result!.coverPdfPath!)}
-                      >
-                        Open cover letter PDF
-                      </button>
-                    )}
-                    {activeTask.result.qaPdfPath && (
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => window.electronAPI.filesOpenFile(activeTask.result!.qaPdfPath!)}
-                      >
-                        Open QA PDF
-                      </button>
-                    )}
-                  </div>
-                )}
-                <h3>Extracted details</h3>
-                <dl className="extracted-fields">
-                  <dt>Company</dt>
-                  <dd>{display(activeTask.result.job?.company_name ?? activeTask.result.extraction?.company_name)}</dd>
-                  <dt>Job title</dt>
-                  <dd>{display(activeTask.result.job?.job_title ?? activeTask.result.extraction?.job_title)}</dd>
-                  <dt>Job type</dt>
-                  <dd>{display(activeTask.result.job?.job_type ?? activeTask.result.extraction?.job_type)}</dd>
-                  <dt>Contact email</dt>
-                  <dd>{display(activeTask.result.job?.contact_email ?? activeTask.result.extraction?.contact?.email)}</dd>
-                  <dt>Contact phone</dt>
-                  <dd>{display(activeTask.result.job?.contact_phone ?? activeTask.result.extraction?.contact?.phone)}</dd>
-                  {activeTask.result.extraction?.contact?.follow_up_links?.length ? (
-                    <>
-                      <dt>Follow-up links</dt>
-                      <dd>
-                        <ul>
-                          {activeTask.result.extraction.contact.follow_up_links.slice(0, 5).map((link, i) => (
-                            <li key={i}>
-                              <a href={link} target="_blank" rel="noopener noreferrer">
-                                {link}
-                              </a>
-                            </li>
-                          ))}
-                        </ul>
-                      </dd>
-                    </>
-                  ) : null}
-                </dl>
-                {activeTask.result.callBOutput?.cover_letter_text && (
+              (() => {
+                const single = activeTask.result as RunResultSingle;
+                return (
                   <>
-                    <h3>Cover letter</h3>
-                    <div className="cover-letter-preview">{activeTask.result.callBOutput.cover_letter_text}</div>
+                    <h2>Generation complete</h2>
+                    <p className="result-summary">
+                      Resume and cover letter PDFs and JD.txt have been saved to the output folder.
+                    </p>
+                    {(single.outputDir || single.resumePdfPath) && (
+                      <div className="result-actions">
+                        {single.outputDir && (
+                          <button
+                            type="button"
+                            className="button-secondary"
+                            onClick={() => window.electronAPI.filesOpenFolder(single.outputDir!)}
+                          >
+                            Open folder
+                          </button>
+                        )}
+                        {single.resumePdfPath && (
+                          <button
+                            type="button"
+                            className="button-secondary"
+                            onClick={() => window.electronAPI.filesOpenFile(single.resumePdfPath!)}
+                          >
+                            Open resume PDF
+                          </button>
+                        )}
+                        {single.coverPdfPath && (
+                          <button
+                            type="button"
+                            className="button-secondary"
+                            onClick={() => window.electronAPI.filesOpenFile(single.coverPdfPath!)}
+                          >
+                            Open cover letter PDF
+                          </button>
+                        )}
+                        {single.qaPdfPath && (
+                          <button
+                            type="button"
+                            className="button-secondary"
+                            onClick={() => window.electronAPI.filesOpenFile(single.qaPdfPath!)}
+                          >
+                            Open QA PDF
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <h3>Extracted details</h3>
+                    <dl className="extracted-fields">
+                      <dt>Company</dt>
+                      <dd>{display(single.job?.company_name ?? single.extraction?.company_name)}</dd>
+                      <dt>Job title</dt>
+                      <dd>{display(single.job?.job_title ?? single.extraction?.job_title)}</dd>
+                      <dt>Job type</dt>
+                      <dd>{display(single.job?.job_type ?? single.extraction?.job_type)}</dd>
+                      <dt>Contact email</dt>
+                      <dd>{display(single.job?.contact_email ?? single.extraction?.contact?.email)}</dd>
+                      <dt>Contact phone</dt>
+                      <dd>{display(single.job?.contact_phone ?? single.extraction?.contact?.phone)}</dd>
+                      {single.extraction?.contact?.follow_up_links?.length ? (
+                        <>
+                          <dt>Follow-up links</dt>
+                          <dd>
+                            <ul>
+                              {(single.extraction?.contact?.follow_up_links ?? []).slice(0, 5).map((link, i) => (
+                                <li key={i}>
+                                  <a href={link} target="_blank" rel="noopener noreferrer">
+                                    {link}
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
+                          </dd>
+                        </>
+                      ) : null}
+                    </dl>
+                    {single.callBOutput?.cover_letter_text && (
+                      <>
+                        <h3>Cover letter</h3>
+                        <div className="cover-letter-preview">{single.callBOutput.cover_letter_text}</div>
+                      </>
+                    )}
                   </>
-                )}
-              </>
-            )}
+                );
+              })() ) }
           </div>
         )}
       </div>

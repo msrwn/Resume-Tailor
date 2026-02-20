@@ -7,7 +7,7 @@ function ProfilesScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'rules' | 'template'>('rules');
+  const [activeTab, setActiveTab] = useState<'rules' | 'template' | 'applicant'>('rules');
   const [profileName, setProfileName] = useState('');
   const [rulesText, setRulesText] = useState('');
   const [templateHtml, setTemplateHtml] = useState('');
@@ -16,6 +16,21 @@ function ProfilesScreen() {
     valid: boolean;
     errors: string[];
   } | null>(null);
+
+  const emptyApplicant = {
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    address1: '',
+    address2: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: '',
+  };
+  const [applicant, setApplicant] = useState(emptyApplicant);
+  const [applicantAnswers, setApplicantAnswers] = useState<Array<{ key: string; value: string }>>([]);
 
   useEffect(() => {
     loadProfiles();
@@ -30,6 +45,33 @@ function ProfilesScreen() {
       setValidationResult(null);
     }
   }, [selectedProfile]);
+
+  useEffect(() => {
+    if (selectedProfile && activeTab === 'applicant') {
+      window.electronAPI.applicantGetByProfile(selectedProfile.profile_id).then((res) => {
+        if (res.success && res.applicant) {
+          setApplicant({
+            firstName: res.applicant.firstName ?? '',
+            lastName: res.applicant.lastName ?? '',
+            email: res.applicant.email ?? '',
+            phone: res.applicant.phone ?? '',
+            address1: res.applicant.address1 ?? '',
+            address2: res.applicant.address2 ?? '',
+            city: res.applicant.city ?? '',
+            state: res.applicant.state ?? '',
+            zip: res.applicant.zip ?? '',
+            country: res.applicant.country ?? '',
+          });
+          setApplicantAnswers(
+            res.answers ? Object.entries(res.answers).map(([key, value]) => ({ key, value })) : []
+          );
+        } else {
+          setApplicant(emptyApplicant);
+          setApplicantAnswers([]);
+        }
+      });
+    }
+  }, [selectedProfile?.profile_id, activeTab]);
 
   const loadProfiles = async () => {
     setLoading(true);
@@ -86,23 +128,41 @@ function ProfilesScreen() {
 
     setSaving(true);
     try {
-      const response = await window.electronAPI.profilesUpdate(selectedProfile.profile_id, {
-        name: profileName,
-        rules_text: rulesText,
-        template_html: templateHtml,
-      });
-
-      if (response.success && response.profile) {
-        await loadProfiles();
-        setSelectedProfile(response.profile);
-        setEditing(false);
-        setValidationResult(null);
-        alert('Profile saved successfully');
+      if (activeTab === 'applicant') {
+        const answersObj: Record<string, string> = {};
+        applicantAnswers.forEach(({ key, value }) => {
+          if (key.trim()) answersObj[key.trim()] = value;
+        });
+        const response = await window.electronAPI.applicantSave(selectedProfile.profile_id, {
+          applicant: applicant,
+          answers: answersObj,
+        });
+        if (response.success && response.profile) {
+          await loadProfiles();
+          setSelectedProfile(response.profile);
+          setEditing(false);
+          alert('Applicant data saved successfully');
+        } else {
+          alert(response.error || 'Failed to save applicant data');
+        }
       } else {
-        alert(response.error || 'Failed to save profile');
+        const response = await window.electronAPI.profilesUpdate(selectedProfile.profile_id, {
+          name: profileName,
+          rules_text: rulesText,
+          template_html: templateHtml,
+        });
+        if (response.success && response.profile) {
+          await loadProfiles();
+          setSelectedProfile(response.profile);
+          setEditing(false);
+          setValidationResult(null);
+          alert('Profile saved successfully');
+        } else {
+          alert(response.error || 'Failed to save profile');
+        }
       }
     } catch (err) {
-      alert('Failed to save profile');
+      alert(activeTab === 'applicant' ? 'Failed to save applicant data' : 'Failed to save profile');
       console.error(err);
     } finally {
       setSaving(false);
@@ -172,9 +232,34 @@ function ProfilesScreen() {
 
   const handleCancel = () => {
     if (selectedProfile) {
-      setProfileName(selectedProfile.name);
-      setRulesText(selectedProfile.rules_text);
-      setTemplateHtml(selectedProfile.template_html);
+      if (activeTab === 'applicant') {
+        window.electronAPI.applicantGetByProfile(selectedProfile.profile_id).then((res) => {
+          if (res.success && res.applicant) {
+            setApplicant({
+              firstName: res.applicant.firstName ?? '',
+              lastName: res.applicant.lastName ?? '',
+              email: res.applicant.email ?? '',
+              phone: res.applicant.phone ?? '',
+              address1: res.applicant.address1 ?? '',
+              address2: res.applicant.address2 ?? '',
+              city: res.applicant.city ?? '',
+              state: res.applicant.state ?? '',
+              zip: res.applicant.zip ?? '',
+              country: res.applicant.country ?? '',
+            });
+            setApplicantAnswers(
+              res.answers ? Object.entries(res.answers).map(([key, value]) => ({ key, value })) : []
+            );
+          } else {
+            setApplicant(emptyApplicant);
+            setApplicantAnswers([]);
+          }
+        });
+      } else {
+        setProfileName(selectedProfile.name);
+        setRulesText(selectedProfile.rules_text);
+        setTemplateHtml(selectedProfile.template_html);
+      }
     }
     setEditing(false);
     setValidationResult(null);
@@ -335,6 +420,12 @@ function ProfilesScreen() {
                 >
                   Resume Template
                 </button>
+                <button
+                  className={`tab-button ${activeTab === 'applicant' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('applicant')}
+                >
+                  Applicant
+                </button>
               </div>
 
               <div className="editor-content">
@@ -349,7 +440,7 @@ function ProfilesScreen() {
                     placeholder="Enter rules text here..."
                     rows={20}
                   />
-                ) : (
+                ) : activeTab === 'template' ? (
                   <textarea
                     value={templateHtml}
                     onChange={(e) => {
@@ -360,15 +451,214 @@ function ProfilesScreen() {
                     placeholder="Enter HTML template here..."
                     rows={20}
                   />
+                ) : (
+                  <div className="applicant-form">
+                    <section className="applicant-section">
+                      <h3 className="applicant-section-title">Name</h3>
+                      <div className="applicant-row">
+                        <label>
+                          <span>First name</span>
+                          <input
+                            type="text"
+                            value={applicant.firstName}
+                            onChange={(e) => {
+                              setApplicant((a) => ({ ...a, firstName: e.target.value }));
+                              setEditing(true);
+                            }}
+                            placeholder="Jane"
+                          />
+                        </label>
+                        <label>
+                          <span>Last name</span>
+                          <input
+                            type="text"
+                            value={applicant.lastName}
+                            onChange={(e) => {
+                              setApplicant((a) => ({ ...a, lastName: e.target.value }));
+                              setEditing(true);
+                            }}
+                            placeholder="Doe"
+                          />
+                        </label>
+                      </div>
+                    </section>
+                    <section className="applicant-section">
+                      <h3 className="applicant-section-title">Contact</h3>
+                      <div className="applicant-row">
+                        <label>
+                          <span>Email</span>
+                          <input
+                            type="email"
+                            value={applicant.email}
+                            onChange={(e) => {
+                              setApplicant((a) => ({ ...a, email: e.target.value }));
+                              setEditing(true);
+                            }}
+                            placeholder="jane.doe@example.com"
+                          />
+                        </label>
+                        <label>
+                          <span>Phone</span>
+                          <input
+                            type="text"
+                            value={applicant.phone}
+                            onChange={(e) => {
+                              setApplicant((a) => ({ ...a, phone: e.target.value }));
+                              setEditing(true);
+                            }}
+                            placeholder="+1 (555) 123-4567"
+                          />
+                        </label>
+                      </div>
+                    </section>
+                    <section className="applicant-section">
+                      <h3 className="applicant-section-title">Address</h3>
+                      <div className="applicant-fields">
+                        <label>
+                          <span>Address 1</span>
+                          <input
+                            type="text"
+                            value={applicant.address1}
+                            onChange={(e) => {
+                              setApplicant((a) => ({ ...a, address1: e.target.value }));
+                              setEditing(true);
+                            }}
+                            placeholder="123 Main St"
+                          />
+                        </label>
+                        <label>
+                          <span>Address 2 (optional)</span>
+                          <input
+                            type="text"
+                            value={applicant.address2}
+                            onChange={(e) => {
+                              setApplicant((a) => ({ ...a, address2: e.target.value }));
+                              setEditing(true);
+                            }}
+                            placeholder="Apt 4"
+                          />
+                        </label>
+                        <div className="applicant-row">
+                          <label>
+                            <span>City</span>
+                            <input
+                              type="text"
+                              value={applicant.city}
+                              onChange={(e) => {
+                                setApplicant((a) => ({ ...a, city: e.target.value }));
+                                setEditing(true);
+                              }}
+                              placeholder="San Francisco"
+                            />
+                          </label>
+                          <label>
+                            <span>State</span>
+                            <input
+                              type="text"
+                              value={applicant.state}
+                              onChange={(e) => {
+                                setApplicant((a) => ({ ...a, state: e.target.value }));
+                                setEditing(true);
+                              }}
+                              placeholder="CA"
+                            />
+                          </label>
+                          <label>
+                            <span>Zip</span>
+                            <input
+                              type="text"
+                              value={applicant.zip}
+                              onChange={(e) => {
+                                setApplicant((a) => ({ ...a, zip: e.target.value }));
+                                setEditing(true);
+                              }}
+                              placeholder="94102"
+                            />
+                          </label>
+                        </div>
+                        <label>
+                          <span>Country</span>
+                          <input
+                            type="text"
+                            value={applicant.country}
+                            onChange={(e) => {
+                              setApplicant((a) => ({ ...a, country: e.target.value }));
+                              setEditing(true);
+                            }}
+                            placeholder="US"
+                          />
+                        </label>
+                      </div>
+                    </section>
+                    <section className="applicant-section">
+                      <h3 className="applicant-section-title">Custom Q&A</h3>
+                      <p className="applicant-hint">Key-value answers for application forms (e.g. work_auth.us_authorized → yes).</p>
+                      {applicantAnswers.map((row, index) => (
+                        <div key={index} className="applicant-answer-row">
+                          <input
+                            type="text"
+                            value={row.key}
+                            onChange={(e) => {
+                              setApplicantAnswers((prev) => {
+                                const next = [...prev];
+                                next[index] = { ...next[index], key: e.target.value };
+                                return next;
+                              });
+                              setEditing(true);
+                            }}
+                            placeholder="Key"
+                            className="applicant-answer-key"
+                          />
+                          <input
+                            type="text"
+                            value={row.value}
+                            onChange={(e) => {
+                              setApplicantAnswers((prev) => {
+                                const next = [...prev];
+                                next[index] = { ...next[index], value: e.target.value };
+                                return next;
+                              });
+                              setEditing(true);
+                            }}
+                            placeholder="Value"
+                            className="applicant-answer-value"
+                          />
+                          <button
+                            type="button"
+                            className="button-danger button-small"
+                            onClick={() => {
+                              setApplicantAnswers((prev) => prev.filter((_, i) => i !== index));
+                              setEditing(true);
+                            }}
+                            aria-label="Remove row"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        className="button-secondary button-small"
+                        onClick={() => {
+                          setApplicantAnswers((prev) => [...prev, { key: '', value: '' }]);
+                          setEditing(true);
+                        }}
+                      >
+                        Add answer
+                      </button>
+                    </section>
+                  </div>
                 )}
               </div>
 
-              <div className="editor-footer">
-                <div className="editor-info">
-                  <span>Rules Hash: {selectedProfile.rules_hash.substring(0, 8)}...</span>
-                  <span>Template Hash: {selectedProfile.template_hash.substring(0, 8)}...</span>
+              {activeTab !== 'applicant' && (
+                <div className="editor-footer">
+                  <div className="editor-info">
+                    <span>Rules Hash: {selectedProfile.rules_hash.substring(0, 8)}...</span>
+                    <span>Template Hash: {selectedProfile.template_hash.substring(0, 8)}...</span>
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           ) : (
             <div className="screen-placeholder">

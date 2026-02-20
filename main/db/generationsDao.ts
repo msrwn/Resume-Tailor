@@ -110,6 +110,28 @@ export function getLatestGenerationForJob(jobId: string): Generation | null {
 }
 
 /**
+ * Get latest successful generation matching normalized_url and profile_id (for autofill /match).
+ */
+export function getMatchGeneration(
+  normalizedUrl: string,
+  profileId: string
+): (Generation & { output_dir: string }) | null {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT g.*
+    FROM generations g
+    JOIN jobs j ON g.job_id = j.job_id
+    WHERE j.normalized_url = ?
+      AND g.profile_id = ?
+      AND g.status = 'success'
+    ORDER BY g.created_at DESC
+    LIMIT 1
+  `);
+  const row = stmt.get(normalizedUrl, profileId) as (Generation & { output_dir: string }) | undefined;
+  return row || null;
+}
+
+/**
  * Get all generations for a job (for multi-profile: one card per generation).
  */
 export function getGenerationsForJob(jobId: string): Generation[] {
