@@ -55,4 +55,17 @@ describe('normalizeJobUrl', () => {
   it('rejects non-http(s) protocols', () => {
     expect(normalizeJobUrl('file:///tmp/job')).toEqual({ normalizedUrl: null, platformId: 'other' });
   });
+
+  it('normalizes Workday apply URL to canonical job path (strip /apply and query)', () => {
+    const jobPage =
+      'https://generalmotors.wd5.myworkdayjobs.com/en-US/Careers_GM/job/Milford-Michigan-United-States-of-America/Software-Engineer----Power-Electronics_JR-202600062';
+    const applyPage =
+      'https://generalmotors.wd5.myworkdayjobs.com/en-US/Careers_GM/job/Milford-Michigan-United-States-of-America/Software-Engineer----Power-Electronics_JR-202600062/apply/autofillWithResume?source=builtin';
+    const rJob = normalizeJobUrl(jobPage);
+    const rApply = normalizeJobUrl(applyPage);
+    expect(rJob.platformId).toBe('workday');
+    expect(rApply.platformId).toBe('workday');
+    expect(rApply.normalizedUrl).toBe(rJob.normalizedUrl);
+    expect(rApply.normalizedUrl).toBe(jobPage);
+  });
 });

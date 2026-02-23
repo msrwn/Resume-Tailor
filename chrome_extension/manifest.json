@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Resume Tailor Autofill",
+  "version": "1.0.0",
+  "description": "Match job by URL, load autofill data from Resume Tailor, and fill ATS application forms.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "http://127.0.0.1:38421/",
+    "http://127.0.0.1:38422/",
+    "*://*.myworkdayjobs.com/*",
+    "*://*.ashbyhq.com/*",
+    "*://jobs.lever.co/*",
+    "*://*.smartrecruiters.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Resume Tailor Autofill"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.myworkdayjobs.com/*",
+        "*://*.ashbyhq.com/*",
+        "*://jobs.lever.co/*",
+        "*://*.smartrecruiters.com/*"
+      ],
+      "js": ["lib/storage.js", "adapters/index.js", "adapters/generic.js", "content/content.js"],
+      "css": ["content/overlay.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

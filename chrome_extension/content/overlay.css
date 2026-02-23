@@ -1,0 +1,107 @@
+/* Resume Tailor Autofill overlay - injected into ATS pages */
+#resume-tailor-overlay-root {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 2147483647;
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  min-width: 280px;
+  max-width: 360px;
+}
+
+#resume-tailor-overlay-root .rt-header {
+  padding: 10px 12px;
+  background: #1976d2;
+  color: #fff;
+  border-radius: 8px 8px 0 0;
+  font-weight: 600;
+}
+
+#resume-tailor-overlay-root .rt-body {
+  padding: 12px;
+}
+
+#resume-tailor-overlay-root .rt-message {
+  padding: 8px 0;
+  color: #555;
+}
+
+#resume-tailor-overlay-root .rt-message.error {
+  color: #c62828;
+}
+
+#resume-tailor-overlay-root .rt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+#resume-tailor-overlay-root .rt-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #555;
+  min-width: 52px;
+}
+
+#resume-tailor-overlay-root .rt-path {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#resume-tailor-overlay-root .rt-copy {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  font-size: 11px;
+  background: #e0e0e0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#resume-tailor-overlay-root .rt-copy:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#resume-tailor-overlay-root .rt-fill-btn {
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 10px;
+  background: #2e7d32;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#resume-tailor-overlay-root .rt-fill-btn:disabled {
+  background: #9e9e9e;
+  cursor: not-allowed;
+}
+
+#resume-tailor-overlay-root .rt-result {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #555;
+}
+
+#resume-tailor-overlay-root .rt-result.filled {
+  color: #2e7d32;
+}
+
+#resume-tailor-overlay-root .rt-result .rt-errors {
+  color: #c62828;
+  font-size: 11px;
+}

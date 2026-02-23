@@ -51,7 +51,18 @@ export function normalizeJobUrl(url: string | null | undefined): NormalizeJobUrl
     }
 
     const hostname = parsed.hostname.toLowerCase();
-    const pathname = parsed.pathname || '/';
+    let pathname = parsed.pathname || '/';
+    const platformId = getPlatformId(hostname);
+
+    // Workday: job description URL and apply URL (e.g. .../apply/autofillWithResume?source=builtin)
+    // must match. Strip /apply and everything after it, and drop query for apply-style URLs.
+    if (platformId === 'workday' && pathname.toLowerCase().includes('/apply')) {
+      const applyIdx = pathname.toLowerCase().indexOf('/apply');
+      pathname = pathname.slice(0, applyIdx) || '/';
+      // Use empty search so apply-page URL matches job-page URL (no query stored for job)
+      const normalizedUrl = `${protocol}//${hostname}${pathname}`;
+      return { normalizedUrl, platformId };
+    }
 
     const searchParams = parsed.searchParams;
     const kept: string[] = [];
@@ -64,7 +75,6 @@ export function normalizeJobUrl(url: string | null | undefined): NormalizeJobUrl
     const search = kept.length > 0 ? '?' + kept.join('&') : '';
 
     const normalizedUrl = `${protocol}//${hostname}${pathname}${search}`;
-    const platformId = getPlatformId(hostname);
 
     return { normalizedUrl, platformId };
   } catch {
