@@ -1,7 +1,11 @@
 /**
- * Build system + user prompt for Call A: JD Extraction
+ * Build system + user prompt for Call A: JD Extraction.
+ * Rules are now fixed in code and independent of any per-profile configuration.
  */
-export function buildCallAMessages(jdText: string, rulesText: string, jobUrl?: string): Array<{ role: 'system' | 'user'; content: string }> {
+export function buildCallAMessages(
+  jdText: string,
+  jobUrl?: string
+): Array<{ role: 'system' | 'user'; content: string }> {
   const systemPrompt = `You are a precise job description parser. Extract structured data from the job description and return ONLY valid JSON, no other text.
 
 Output JSON with this exact structure (use null for missing values):
@@ -36,9 +40,6 @@ Return only the JSON object.`;
   let userContent = `Job description to parse:\n\n${jdText}`;
   if (jobUrl) {
     userContent += `\n\nOptional source URL (metadata only): ${jobUrl}`;
-  }
-  if (rulesText && rulesText.trim()) {
-    userContent += `\n\nProfile rules (for context):\n${rulesText.substring(0, 500)}`;
   }
 
   return [

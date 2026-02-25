@@ -1,56 +1,7 @@
-import { getDatabase } from './database';
-import { createProfile } from './profilesDao';
-
-/**
- * Seed default profile if none exists.
- */
-export function seedDefaultProfile(): void {
-  const db = getDatabase();
-  const existingDefault = db.prepare('SELECT profile_id FROM profiles WHERE is_default = 1 AND archived_at IS NULL').get();
-
-  if (existingDefault) {
-    return; // Default profile already exists
-  }
-
-  // Create a default profile with placeholder content
-  // In a real app, this would come from a file or user input
-  createProfile({
-    name: 'Default Profile',
-    rules_text: `# Resume Generation Rules
-
-## Personal Information
-- First Name: Tan
-- Keep personal information consistent across all resumes
-
-## Summary Section
-- Start with: "Experienced software engineer with..."
-- Keep to 3-4 sentences
-- Highlight relevant experience for the role
-
-## Skills Section
-- Organize skills by category (Programming Languages, Frameworks, Tools)
-- List 15-20 relevant skills
-- Match skills to job requirements
-
-## Professional Experience
-- Include 3-5 most relevant positions
-- Use 4-6 bullet points per position
-- Start bullets with action verbs
-- Quantify achievements where possible
-- Use <strong> tags sparingly (max 1 per bullet) for key achievements
-
-## Education
-- Include degree, institution, graduation year
-
-## Certificates
-- List relevant certifications
-`,
-    base_resume_text: '',
-    template_html: `<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>{{owner_first_name}}</title>
+    <title>{owner_first_name}</title>
     <style>
       body {
         font-family: Rubik;
@@ -93,12 +44,19 @@ export function seedDefaultProfile(): void {
         margin-left: 20px;
       }
       li {
-        position: relative;
+        position: relative; /* add this */
         margin-bottom: 2px;
         text-align: justify;
-        padding-left: 0px;
+        padding-left: 0px; /* leave space for the dash */
       }
       .company-role {
+        font-weight: bold;
+      }
+      .category {
+        font-weight: bold;
+      }
+      .project-name {
+        color: darkblue;
         font-weight: bold;
       }
       p {
@@ -108,36 +66,23 @@ export function seedDefaultProfile(): void {
     </style>
   </head>
   <body>
-    <h1>{{owner_first_name}} Resume</h1>
-    <h3>{{headline}}</h3>
+    <h1>{owner_full_name}</h1>
+    <h3>{headline}</h3>
     <div class="contact">{phone number} • {email} • {github} • {address}</div>
 
     <h2>Summary</h2>
-    <p>{{summary}}</p>
+    <p>{summary}</p>
 
     <h2>Skills</h2>
     <ul>
-      <li>
-        {category}: {skill 1}, {skill 2}, {skill 3}, ...
-      </li>
-      <li>
-        {category}: {skill 1}, {skill 2}, {skill 3}, ...
-      </li>
-      <li>
-        {category}: {skill 1}, {skill 2}, {skill 3}, ...
-      </li>
+      <li><span class="category">{category}</span>: {skill 1}, {skill 2}, {skill 3}, ...</li>
+      <li><span class="category">{category}</span>: {skill 1}, {skill 2}, {skill 3}, ...</li>
       ...
     </ul>
 
     <h2>Professional Experience</h2>    
-    <h3>{role}<span class="company-info">{company name}</span></h3>
-    <div>{company address} | {duration}</div>
-    <ul>
-      <li>{experiene}</li>
-      <li>{experiene}</li>
-      ...
-    </ul>
-    <div>{company address} | {duration}</div>
+    <h3>{role_title}<span class="company-info">{company_display_name}</span></h3>
+    <div>{location} | {duration}</div>
     <ul>
       <li>{experiene}</li>
       <li>{experiene}</li>
@@ -146,13 +91,7 @@ export function seedDefaultProfile(): void {
     ...
 
     <h2>Freelancing & Client Projects</h2>
-    <div>{project name} - {project description}</div>
-    <ul>
-      <li>{experiene}</li>
-      <li>{experiene}</li>
-      ...
-    </ul>
-    <div>{project name} - {project description}</div>
+    <div><span class="project-name">{client_name}</span> - {project_description}</div>
     <ul>
       <li>{experiene}</li>
       <li>{experiene}</li>
@@ -161,7 +100,7 @@ export function seedDefaultProfile(): void {
     ...
 
     <h2>Education</h2>
-    <p>{{education}}</p>
+    <p>{education}</p>
 
     <section>
       <h2>Certificates</h2>
@@ -179,7 +118,4 @@ export function seedDefaultProfile(): void {
       </ul>
     </section>
   </body>
-</html>`,
-    is_default: true,
-  });
-}
+</html>

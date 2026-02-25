@@ -3,7 +3,7 @@ import { getApiKey } from '../config/secretsManager';
 import { readConfig } from '../config/configManager';
 import { parseStrictJson } from './parseJson';
 import { buildCallAMessages } from './callAPrompt';
-import { buildCallBMessages, resumePayloadHasPlaceholders } from './callBPrompt';
+import { buildCallBMessages } from './callBPrompt';
 import type { CallAOutput, CallBOutput } from '../../shared/types';
 
 export type LlmUsage = {
@@ -62,7 +62,6 @@ function capRawText(raw: string, maxLen = 2000): string {
  */
 export async function runJdExtraction(params: {
   jdText: string;
-  rulesText: string;
   jobUrl?: string;
   model?: string;
   fallbackModel?: string;
@@ -76,7 +75,7 @@ export async function runJdExtraction(params: {
   const fallbackEnabled = params.fallbackEnabled ?? config.fallbackEnabled;
 
   const client = await getOpenAIClient();
-  const messages = buildCallAMessages(params.jdText, params.rulesText, params.jobUrl);
+  const messages = buildCallAMessages(params.jdText, params.jobUrl);
 
   const runWithModel = async (useModel: string): Promise<{ raw: string; usage?: LlmUsage }> => {
     try {
@@ -261,9 +260,9 @@ export type ResumePayloadResponse = ResumePayloadResult | ResumePayloadFailure;
  */
 export async function runResumePayload(params: {
   jdText: string;
-  rulesText: string;
   callA: CallAOutput;
-  templateHtml?: string;
+  baseResumeText?: string;
+  promptText?: string;
   questions?: string[];
   model?: string;
   fallbackModel?: string;
@@ -277,7 +276,13 @@ export async function runResumePayload(params: {
   const fallbackEnabled = params.fallbackEnabled ?? config.fallbackEnabled;
 
   const client = await getOpenAIClient();
-  const messages = buildCallBMessages(params.jdText, params.rulesText, params.callA, params.templateHtml, params.questions);
+  const messages = buildCallBMessages(
+    params.jdText,
+    params.callA,
+    params.baseResumeText,
+    params.promptText,
+    params.questions
+  );
 
   const runWithModel = async (useModel: string): Promise<{ raw: string; usage?: LlmUsage }> => {
     const completion = await client.chat.completions.create({
@@ -303,7 +308,7 @@ export async function runResumePayload(params: {
     const d = parsed.data;
     if (!d || typeof d !== 'object') return null;
 
-    // Rules schema: meta + resume + cover_letter (from profile rules document)
+    // Structured schema: meta + resume + cover_letter
     const meta = d.meta as Record<string, unknown> | undefined;
     const resume = d.resume as Record<string, unknown> | undefined;
     const rawCover = d.cover_letter;
@@ -344,46 +349,8 @@ export async function runResumePayload(params: {
       };
     }
 
-    // Legacy: resume_payload + cover_letter_text
-    const coverLetterText = d.cover_letter_text ?? (d as any).coverLetterText;
-    if (typeof coverLetterText !== 'string') return null;
-    const resumePayload = d.resume_payload ?? (d as any).resumePayload;
-    if (!resumePayload || typeof resumePayload !== 'object') return null;
-    const ownerFirstName = typeof d.owner_first_name === 'string' ? d.owner_first_name : (typeof (d as any).ownerFirstName === 'string' ? (d as any).ownerFirstName : 'Candidate');
-    const companyName = d.company_name ?? (d as any).companyName ?? null;
-    const jobTitle = d.job_title ?? (d as any).jobTitle ?? null;
-    if (resumePayloadHasPlaceholders(resumePayload as Record<string, unknown>)) return null;
-    const rawQaLegacy = d.qa;
-    const qa = Array.isArray(rawQaLegacy)
-      ? rawQaLegacy
-          .filter((item) => item && typeof item === 'object' && typeof item.question === 'string' && typeof item.answer === 'string')
-          .map((item) => ({ question: String(item.question), answer: String(item.answer) }))
-      : undefined;
-    const callBOutput: CallBOutput = {
-      owner_first_name: ownerFirstName,
-      company_name: companyName as string | null,
-      job_title: jobTitle as string | null,
-      resume_payload: resumePayload as Record<string, unknown>,
-      cover_letter_text: coverLetterText,
-      qa,
-    };
-    if (process.env.NODE_ENV !== 'production') {
-      const preview: Record<string, string> = {};
-      for (const [k, v] of Object.entries(resumePayload)) {
-        const s = v == null ? '' : typeof v === 'string' ? v : JSON.stringify(v);
-        preview[k] = s.length > 120 ? s.slice(0, 120) + '...' : s;
-      }
-      console.log('[Call B] resume_payload keys:', Object.keys(resumePayload));
-      console.log('[Call B] resume_payload preview:', preview);
-    }
-    return {
-      success: true,
-      json: callBOutput,
-      rawText: capRawText(raw),
-      usage: undefined,
-      modelUsed: model,
-      fallbackUsed: false,
-    };
+    // If the object doesn't match the structured schema, treat it as invalid.
+    return null;
   };
 
   let lastRaw = '';

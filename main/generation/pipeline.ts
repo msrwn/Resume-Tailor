@@ -3,32 +3,11 @@ import * as jobsDao from '../db/jobsDao';
 import * as profilesDao from '../db/profilesDao';
 import * as generationsDao from '../db/generationsDao';
 import { runJdExtraction, runResumePayload } from '../llm/openaiAdapter';
-import {
-  buildOutputDirectory,
-  computeBaseFolder,
-  generateOutputFilePaths,
-  extractOwnerFirstName,
-  ensureDir,
-} from '../fs/filesystem';
+import { buildOutputDirectory, computeBaseFolder, generateOutputFilePaths, ensureDir } from '../fs/filesystem';
 import { validateCallBOutput } from '../validation/validator';
 import { mergeResumeTemplate, getTemplatePlaceholderKeys, buildMergePayloadFromStructuredResume } from '../pdf/templateMerge';
 
-/** Normalize legacy resume_payload so it has the same keys as structured payload for merge. */
-function normalizeLegacyPayload(
-  resumePayload: Record<string, unknown>,
-  ownerFirstName: string
-): Record<string, unknown> {
-  const str = (v: unknown) => (v != null && typeof v === 'string' ? v : '');
-  return {
-    owner_first_name: ownerFirstName,
-    headline: str(resumePayload.headline),
-    summary: str(resumePayload.summary),
-    skills: str(resumePayload.skills),
-    experience: str(resumePayload.experience),
-    education: str(resumePayload.education),
-    certificates: str(resumePayload.certificates),
-  };
-}
+/** Legacy normalize function removed: new pipeline always uses structured resume JSON. */
 import { buildCoverLetterHtml } from '../pdf/coverLetterHtml';
 import { buildQAHtml } from '../pdf/qaHtml';
 import { renderHtmlToPdf } from '../pdf/pdfRenderer';
@@ -67,6 +46,26 @@ function mapCallAToJobUpdate(_jobId: string, out: CallAOutput): Parameters<typeo
   };
 }
 
+/**
+ * Apply meta (identity + contact) from Call B output to the merge payload.
+ * Call B returns the full structure including meta.contact_*, so no base-resume lookup is needed.
+ */
+function applyMetaToPayload(
+  payload: Record<string, unknown>,
+  meta: CallBOutput['meta'] | undefined
+): void {
+  if (!meta) return;
+  if (meta.owner_first_name) payload.owner_first_name = meta.owner_first_name;
+  if (meta.owner_full_name) payload.owner_full_name = meta.owner_full_name;
+  if (meta.company_name) payload.company_name = meta.company_name;
+  if (meta.job_title) payload.job_title = meta.job_title;
+  if (meta.role_display) payload.role_display = meta.role_display;
+  if (meta.contact_email) payload.contact_email = meta.contact_email;
+  if (meta.contact_phone) payload.contact_phone = meta.contact_phone;
+  if (meta.contact_github) payload.contact_github = meta.contact_github;
+  if (meta.contact_address) payload.contact_address = meta.contact_address;
+}
+
 /** Config type for pipeline (subset we need in helpers). */
 type PipelineConfig = ReturnType<typeof readConfig>;
 
@@ -78,13 +77,15 @@ async function runOneProfileGeneration(params: {
   job: ReturnType<typeof jobsDao.getJob>;
   callAResult: { json: CallAOutput; modelUsed: string; usage?: { prompt_tokens?: number; completion_tokens?: number } };
   profileId: string;
+  /** Optional prompt text to use for this profile (MVP: same prompt for all profiles). */
+  promptText: string | undefined;
   questions: string[] | undefined;
   config: PipelineConfig;
   emit: (step: GenerationStep, message: string, percent: number) => void;
   index: number;
   total: number;
 }): Promise<GenerationProfileResult> {
-  const { job, callAResult, profileId, questions, config, emit, index, total } = params;
+  const { job, callAResult, profileId, promptText, questions, config, emit, index, total } = params;
   if (!job) {
     return { profileId, profileName: '?', error: 'Job not found' };
   }
@@ -106,9 +107,9 @@ async function runOneProfileGeneration(params: {
   emit('generating_payload', `Generating for ${profile.name} (${index + 1}/${total})...`, 30 + (50 * index) / total);
   const callBResult = await runResumePayload({
     jdText: job.jd_text,
-    rulesText: profile.rules_text,
+    baseResumeText: profile.base_resume_text,
+    promptText,
     callA: callAResult.json,
-    templateHtml: profile.template_html,
     questions,
     model: config.resumePayloadModel,
     fallbackModel: config.fallbackModel,
@@ -159,7 +160,7 @@ async function runOneProfileGeneration(params: {
   }
 
   emit('validating', `Validating ${profile.name}...`, 75);
-  const validation = validateCallBOutput(callBResult.json, profile.rules_text, Boolean(questions?.length));
+  const validation = validateCallBOutput(callBResult.json, Boolean(questions?.length));
   if (!validation.valid) {
     const gen = generationsDao.createGeneration({
       job_id: jobId,
@@ -214,8 +215,9 @@ async function runOneProfileGeneration(params: {
     total_estimated_cost_usd: null,
   });
 
+  const meta = callBResult.json.meta;
   const ownerFirstName =
-    callBResult.json.owner_first_name?.trim() || extractOwnerFirstName(profile.rules_text);
+    (meta?.owner_first_name ?? callBResult.json.owner_first_name)?.trim() || 'Resume';
   const filePaths = generateOutputFilePaths({ outputDir: dirResult.outputDir, ownerFirstName });
 
   let resumePdfPath: string | null = null;
@@ -224,10 +226,14 @@ async function runOneProfileGeneration(params: {
   let qaPdfPath: string | null = null;
 
   try {
-    const payload: Record<string, unknown> =
-      callBResult.json.resume != null
-        ? buildMergePayloadFromStructuredResume(callBResult.json.resume, ownerFirstName)
-        : normalizeLegacyPayload(callBResult.json.resume_payload ?? {}, ownerFirstName);
+    if (!callBResult.json.resume) {
+      throw new Error('Call B output missing structured resume section');
+    }
+    const payload: Record<string, unknown> = buildMergePayloadFromStructuredResume(
+      callBResult.json.resume,
+      ownerFirstName
+    );
+    applyMetaToPayload(payload, meta);
     const resumeHtml = mergeResumeTemplate(profile.template_html, payload, ownerFirstName);
     const resumePdfBuffer = await renderHtmlToPdf(resumeHtml);
     fs.writeFileSync(filePaths.resumePdfPath, resumePdfBuffer);
@@ -337,7 +343,6 @@ export async function runGenerationCallAOnly(params: {
 
   const result = await runJdExtraction({
     jdText: job.jd_text,
-    rulesText: profile.rules_text,
     jobUrl: sourceUrl,
     model: config.jdExtractionModel,
     fallbackModel: config.fallbackModel,
@@ -402,6 +407,8 @@ export async function runFullGeneration(params: {
   sourceUrl?: string;
   profileId?: string;
   profileIds?: string[];
+  /** Optional promptId to use for all profiles (MVP). */
+  promptId?: string;
   questions?: string[];
   onProgress?: ProgressCallback;
 }): Promise<
@@ -438,7 +445,6 @@ export async function runFullGeneration(params: {
     emit('extracting_jd', 'Extracting job details (Call A)...', 15);
     const callAResult = await runJdExtraction({
       jdText: job.jd_text,
-      rulesText: firstProfile.rules_text,
       jobUrl: params.sourceUrl,
       model: config.jdExtractionModel,
       fallbackModel: config.fallbackModel,
@@ -463,6 +469,7 @@ export async function runFullGeneration(params: {
         job: updatedJob,
         callAResult: { json: callAResult.json, modelUsed: callAResult.modelUsed, usage: callAResult.usage },
         profileId: profileIds[i],
+        promptText: undefined, // Multi-profile prompt selection not yet implemented (MVP).
         questions: params.questions,
         config,
         emit,
@@ -490,6 +497,21 @@ export async function runFullGeneration(params: {
   }
   const jdText = params.jdText;
   const sourceUrl = params.sourceUrl;
+  const promptId = params.promptId;
+  let promptText: string | undefined;
+  if (promptId) {
+    try {
+      const { getPrompt } = await import('../db/profilePromptsDao');
+      const prompt = getPrompt(promptId);
+      if (prompt && prompt.profile_id === profileId) {
+        promptText = prompt.prompt_text;
+      }
+    } catch (e) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[Pipeline] Failed to load prompt for Call B:', e);
+      }
+    }
+  }
 
   if (!config.outputRootPath) {
     return { success: false, error: 'Output path is not set. Configure it in Settings.' };
@@ -502,7 +524,6 @@ export async function runFullGeneration(params: {
   emit('extracting_jd', 'Extracting job details (Call A)...', 15);
   const callAResult = await runJdExtraction({
     jdText: job.jd_text,
-    rulesText: profile.rules_text,
     jobUrl: sourceUrl,
     model: config.jdExtractionModel,
     fallbackModel: config.fallbackModel,
@@ -537,9 +558,9 @@ export async function runFullGeneration(params: {
   emit('generating_payload', 'Generating resume and cover letter (Call B)...', 35);
   const callBResult = await runResumePayload({
     jdText: job.jd_text,
-    rulesText: profile.rules_text,
+    baseResumeText: profile.base_resume_text,
+    promptText,
     callA: callAResult.json,
-    templateHtml: profile.template_html,
     questions: params.questions,
     model: config.resumePayloadModel,
     fallbackModel: config.fallbackModel,
@@ -599,7 +620,10 @@ export async function runFullGeneration(params: {
   }
 
   emit('validating', 'Validating output...', 75);
-  const validation = validateCallBOutput(callBResult.json, profile.rules_text, params.questions && params.questions.length > 0);
+  const validation = validateCallBOutput(
+    callBResult.json,
+    params.questions && params.questions.length > 0
+  );
   if (!validation.valid) {
     const gen = generationsDao.createGeneration({
       job_id: jobId,
@@ -658,9 +682,9 @@ export async function runFullGeneration(params: {
     total_estimated_cost_usd: null,
   });
 
+  const meta = callBResult.json.meta;
   const ownerFirstName =
-    callBResult.json.owner_first_name?.trim() ||
-    extractOwnerFirstName(profile.rules_text);
+    (meta?.owner_first_name ?? callBResult.json.owner_first_name)?.trim() || 'Resume';
   const filePaths = generateOutputFilePaths({
     outputDir: dirResult.outputDir,
     ownerFirstName,
@@ -673,11 +697,14 @@ export async function runFullGeneration(params: {
 
   try {
     emit('rendering_pdfs', 'Rendering resume PDF...', 88);
-    // Always build one payload with keys: headline, summary, skills, experience, education, certificates. Insert that into the template.
-    const payload: Record<string, unknown> =
-      callBResult.json.resume != null
-        ? buildMergePayloadFromStructuredResume(callBResult.json.resume, ownerFirstName)
-        : normalizeLegacyPayload(callBResult.json.resume_payload ?? {}, ownerFirstName);
+    if (!callBResult.json.resume) {
+      throw new Error('Call B output missing structured resume section');
+    }
+    const payload: Record<string, unknown> = buildMergePayloadFromStructuredResume(
+      callBResult.json.resume,
+      ownerFirstName
+    );
+    applyMetaToPayload(payload, meta);
 
     if (process.env.NODE_ENV !== 'production') {
       const keys = Object.keys(payload);

@@ -1,7 +1,5 @@
 import type Database from 'better-sqlite3';
 
-const CURRENT_VERSION = 2;
-
 /**
  * Run all migrations up to current version.
  */
@@ -14,6 +12,20 @@ export function runMigrations(db: Database.Database): void {
 
   if (currentVersion < 2) {
     migration2_addQaPdfPath(db);
+  }
+
+  // Migration 3 adds base_resume_text + profile_prompts. Some existing DBs may already have
+  // user_version = 3 from an earlier build but still be missing profile_prompts, so we also
+  // check for the table's existence and run the migration if it's missing.
+  const needsMigration3 =
+    currentVersion < 3 ||
+    !db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'profile_prompts'"
+      )
+      .get();
+  if (needsMigration3) {
+    migration3_addBaseResumeAndPrompts(db);
   }
 }
 
@@ -101,7 +113,8 @@ function migration1_initialSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_generations_status ON generations(status);
   `);
 
-  db.pragma(`user_version = ${CURRENT_VERSION}`);
+  // Initial schema version is 1; later migrations bump this.
+  db.pragma('user_version = 1');
 }
 
 /**
@@ -116,5 +129,35 @@ function migration2_addQaPdfPath(db: Database.Database): void {
     db.exec(`ALTER TABLE generations ADD COLUMN qa_pdf_path TEXT NULL`);
   }
 
-  db.pragma(`user_version = 2`);
+  db.pragma('user_version = 2');
+}
+
+/**
+ * Migration 3: Add base_resume_text to profiles and create profile_prompts table.
+ */
+function migration3_addBaseResumeAndPrompts(db: Database.Database): void {
+  // 1) Add base_resume_text to profiles if missing
+  const profilesInfo = db.prepare('PRAGMA table_info(profiles)').all() as Array<{ name: string }>;
+  const hasBaseResume = profilesInfo.some((col) => col.name === 'base_resume_text');
+  if (!hasBaseResume) {
+    db.exec(`ALTER TABLE profiles ADD COLUMN base_resume_text TEXT NOT NULL DEFAULT ''`);
+  }
+
+  // 2) Create profile_prompts table if not exists
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS profile_prompts (
+      prompt_id TEXT PRIMARY KEY,
+      profile_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      prompt_text TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      archived_at TEXT NULL,
+      FOREIGN KEY (profile_id) REFERENCES profiles(profile_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_prompts_profile_id ON profile_prompts(profile_id);
+  `);
+
+  db.pragma('user_version = 3');
 }

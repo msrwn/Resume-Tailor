@@ -1,5 +1,5 @@
 // Type definitions for Electron API exposed via preload script
-import type { AppConfig, Profile, Job, Generation, CallAOutput, CallBOutput } from '@shared/types';
+import type { AppConfig, Profile, ProfilePrompt, Job, Generation, CallAOutput, CallBOutput } from '@shared/types';
 
 export interface ElectronAPI {
   // App info
@@ -27,10 +27,14 @@ export interface ElectronAPI {
   profilesList: () => Promise<{ success: boolean; profiles?: Profile[]; error?: string }>;
   profilesGet: (profileId: string) => Promise<{ success: boolean; profile?: Profile | null; error?: string }>;
   profilesGetDefault: () => Promise<{ success: boolean; profile?: Profile | null; error?: string }>;
-  profilesCreate: (data: { name: string; rules_text: string; template_html: string; is_default?: boolean }) => Promise<{ success: boolean; profile?: Profile; error?: string }>;
-  profilesUpdate: (profileId: string, data: Partial<{ name: string; rules_text: string; template_html: string; is_default: boolean }>) => Promise<{ success: boolean; profile?: Profile; error?: string }>;
+  profilesCreate: (data: { name: string; rules_text: string; base_resume_text: string; template_html: string; is_default?: boolean }) => Promise<{ success: boolean; profile?: Profile; error?: string }>;
+  profilesUpdate: (profileId: string, data: Partial<{ name: string; rules_text: string; base_resume_text: string; template_html: string; is_default: boolean }>) => Promise<{ success: boolean; profile?: Profile; error?: string }>;
   profilesSetDefault: (profileId: string) => Promise<{ success: boolean; error?: string }>;
   profilesArchive: (profileId: string) => Promise<{ success: boolean; error?: string }>;
+  profilePromptsList: (profileId: string) => Promise<{ success: boolean; prompts?: ProfilePrompt[]; error?: string }>;
+  profilePromptsCreate: (data: { profile_id: string; name: string; prompt_text: string }) => Promise<{ success: boolean; prompt?: ProfilePrompt; error?: string }>;
+  profilePromptsUpdate: (promptId: string, data: Partial<{ name: string; prompt_text: string }>) => Promise<{ success: boolean; prompt?: ProfilePrompt; error?: string }>;
+  profilePromptsArchive: (promptId: string) => Promise<{ success: boolean; error?: string }>;
   profilesValidate: (data: { rules_text: string; template_html: string }) => Promise<{ success: boolean; valid?: boolean; errors?: string[]; error?: string }>;
 
   // Jobs
@@ -56,7 +60,7 @@ export interface ElectronAPI {
     rawResponse?: string;
     extraction?: CallAOutput;
   }>;
-  generationRunFull: (params: { jdText: string; sourceUrl?: string; profileId?: string; profileIds?: string[]; questions?: string[]; taskId?: number }) => Promise<{
+  generationRunFull: (params: { jdText: string; sourceUrl?: string; profileId?: string; profileIds?: string[]; promptId?: string; questions?: string[]; taskId?: number }) => Promise<{
     success: boolean;
     jobId?: string;
     generationId?: string;

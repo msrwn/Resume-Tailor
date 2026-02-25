@@ -1,14 +1,14 @@
 # Resume Tailor Desktop App — PRD (MVP, Updated)
 
 ## 0) One-paragraph summary
-Build a local-first Electron desktop app that turns a pasted Job Description (JD) into (1) a **PDF resume** rendered from a **selected Profile’s non-negotiable HTML template**, (2) a **PDF cover letter** rendered from model text, and (3) a saved **JD text file**, while also saving all job/application metadata (company, role, optional URL, contact info, follow-up links, prompt/template hashes, model usage, and cost estimates) into a local DB so you can instantly search and retrieve past applications.
+Build a local-first Electron desktop app that turns a pasted Job Description (JD) into (1) a **PDF resume** rendered from a **selected Profile’s non-negotiable HTML template**, (2) a **PDF cover letter** rendered from model text, and (3) a saved **JD text file**, while also saving all job/application metadata (company, role, optional URL, contact info, follow-up links, prompt/template hashes, model usage, and cost estimates) into a local DB so you can instantly search and retrieve past applications. Each Profile owns a **base resume (plain text)** and **one or more role-focused prompts**; for every JD we send `base resume + selected prompt + JD` to the LLM and get back a **structured JSON resume + cover letter + QA answers** that is merged into the Profile’s template.
 
 ---
 
 ## 1) Goals
 - **One-click generation**: paste JD → click Generate → PDFs + JD saved into deterministic folders.
 - **Local-first**: files + DB stored on the user’s machine.
-- **Profiles**: support multiple “Rules + HTML Template” bundles and select one per generation.
+- **Profiles**: support multiple “Base Resume + Prompts + HTML Template” bundles and select one Profile **and one Prompt** per generation.
 - **Traceability**: every output is attributable to the exact Profile and model config used.
 - **Zero overwrites**: handle missing company/role safely and prevent collisions automatically.
 - **Fast retrieval**: search by company/role/keywords; show contact info for follow-up.
@@ -107,12 +107,16 @@ Select Profile per generation; one Profile can be set as Default.
   - Profile used + hashes
   - Model usage + cost estimate
 
-### 5.4 Profiles screen (MVP)
+### 5.4 Profiles screen (MVP + base resume / prompts)
 Two-column layout:
 - Left: Profile list (Default badge)
 - Right: Profile editor
   - Profile Name
-  - Tabs: Rules / Resume Template
+  - Tabs:
+    - Rules (legacy; still editable for validation hints)
+    - Base Resume (plain text, single source of truth per profile)
+    - Resume Template (HTML)
+    - Prompts (list of role-focused prompts for this profile)
   - Buttons: New (clone), Save, Set Default, Archive, Validate
 
 ### 5.5 Settings screen (MVP)
@@ -156,8 +160,9 @@ Model:
 ### 7.1 Table: `profiles`
 - `profile_id` TEXT PRIMARY KEY (uuid)
 - `name` TEXT NOT NULL
-- `rules_text` TEXT NOT NULL
-- `template_html` TEXT NOT NULL
+- `rules_text` TEXT NOT NULL                  -- still used for validation hints and legacy profiles
+- `base_resume_text` TEXT NOT NULL            -- plain-text base resume; single source of truth
+- `template_html` TEXT NOT NULL               -- resume HTML template
 - `rules_hash` TEXT NOT NULL
 - `template_hash` TEXT NOT NULL
 - `is_default` INTEGER NOT NULL DEFAULT 0
@@ -168,7 +173,21 @@ Model:
 Rules:
 - Exactly one Profile has `is_default = 1` (enforced by app).
 
-### 7.2 Table: `jobs`
+### 7.2 Table: `profile_prompts`
+A Profile can have multiple prompts (e.g., Mobile-focused, Web-focused) that all share the same base resume and template.
+
+- `prompt_id` TEXT PRIMARY KEY (uuid)
+- `profile_id` TEXT NOT NULL (FK to profiles)
+- `name` TEXT NOT NULL                         -- e.g. "Mobile-focused", "Web platform"
+- `prompt_text` TEXT NOT NULL                  -- full instructions sent to the LLM
+- `created_at` TEXT NOT NULL (ISO)
+- `updated_at` TEXT NOT NULL (ISO)
+- `archived_at` TEXT NULL (ISO)
+
+Indexes:
+- `idx_prompts_profile_id`
+
+### 7.3 Table: `jobs`
 One JD paste = one job record.
 - `job_id` TEXT PRIMARY KEY (uuid)
 - `created_at` TEXT NOT NULL (ISO)
@@ -287,16 +306,19 @@ Outputs:
 
 Persist to `jobs`.
 
-### Step 3 — Call B: Resume Payload + Cover Letter
+### Step 3 — Call B: Tailored Resume JSON + Cover Letter + QA
 Inputs:
 - JD text
-- Selected Profile’s `rules_text`
+- Selected Profile’s **base_resume_text**
+- Selected Prompt’s `prompt_text` (e.g., Mobile-focused, Web-focused)
+- Selected Profile’s `rules_text` (for validation hints; optional)
 - JD extraction output
+- Optional questions array (from Generate screen)
 
 Outputs:
-- Resume payload (structured for template merge)
-- Cover letter text (4–5 sentences)
-- Optional contact info block (only if JD contains contact info / follow-up links per Profile rules)
+- `resume` object: structured JSON resume derived from base resume + JD + prompt (summary, skills by category, experience, freelance projects, education[], certificates, etc.).
+- `cover_letter` text (4–5 sentences).
+- Optional `qa` array: answers to user-provided questions.
 
 ### Step 4 — Validate (derived from the selected Profile rules_text)
 - JSON schema validation (shape + required fields)
@@ -392,13 +414,24 @@ Fallback can be disabled via Settings (`fallbackEnabled=false`).
   - `source_text_snippets` (array of short snippets)
 
 ### 12.2 Call B output (conceptual)
-- `owner_first_name` (extracted from Profile rules_text personal info)
-- `company_name` (best guess)
-- `job_title` (best guess)
-- `resume_payload` (fields needed to fill the Profile template)
-- `cover_letter_text` (4–5 sentences)
+Per JD, Call B returns a strictly-typed JSON object:
 
-Note: The exact payload fields are internal to the template merge engine; validation constraints come from Profile rules_text.
+- `owner_first_name` (string)
+- `company_name` (string | null, best guess)
+- `job_title` (string | null, best guess)
+- `resume` (object) — structured resume derived from **base resume + JD + selected prompt**, including at least:
+  - `full_name`, `first_name`, `title`
+  - `contact` (phone, email, github, address)
+  - `summary` (plain text)
+  - `skills` (array of `{category, items[]}`)
+  - `experience` (array of roles with bullets)
+  - `freelance_projects` (array with bullets)
+  - `education` (array of degrees)
+  - `certificates` (array with titles/URLs)
+- `cover_letter` (string; 4–5 sentences)
+- `qa` (optional array of `{question, answer}`) when questions were provided.
+
+The template merge layer is responsible for mapping this `resume` object into the Profile’s `template_html` (using placeholders/sections), and the QA feature uses `qa` for the Q&A PDF. Validation constraints still derive from the selected Profile’s `rules_text`.
 
 ---
 

@@ -42,6 +42,7 @@ export function getDefaultProfile(): Profile | null {
 export function createProfile(data: {
   name: string;
   rules_text: string;
+  base_resume_text: string;
   template_html: string;
   is_default?: boolean;
 }): Profile {
@@ -59,7 +60,7 @@ export function createProfile(data: {
 
   const stmt = db.prepare(`
     INSERT INTO profiles (
-      profile_id, name, rules_text, template_html, rules_hash, template_hash,
+      profile_id, name, rules_text, base_resume_text, template_html, rules_hash, template_hash,
       is_default, created_at, updated_at, archived_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
   `);
@@ -68,6 +69,7 @@ export function createProfile(data: {
     profileId,
     data.name,
     data.rules_text,
+    data.base_resume_text,
     data.template_html,
     rulesHash,
     templateHash,
@@ -85,6 +87,7 @@ export function createProfile(data: {
 export function updateProfile(profileId: string, data: Partial<{
   name: string;
   rules_text: string;
+  base_resume_text: string;
   template_html: string;
   is_default: boolean;
 }>): Profile {
@@ -112,6 +115,7 @@ export function updateProfile(profileId: string, data: Partial<{
     UPDATE profiles
     SET name = COALESCE(?, name),
         rules_text = COALESCE(?, rules_text),
+        base_resume_text = COALESCE(?, base_resume_text),
         template_html = COALESCE(?, template_html),
         rules_hash = ?,
         template_hash = ?,
@@ -123,6 +127,7 @@ export function updateProfile(profileId: string, data: Partial<{
   stmt.run(
     data.name ?? null,
     data.rules_text ?? null,
+    data.base_resume_text ?? null,
     data.template_html ?? null,
     rulesHash,
     templateHash,

@@ -103,7 +103,7 @@ function HistoryScreen() {
       ) : (
         <div className="history-list">
           {results.map(({ job, generation, profileName }) => (
-            <div key={generation.generation_id} className="history-item">
+            <div key={generation?.generation_id ?? job.job_id} className="history-item">
               <div className="history-item-header">
                 <div className="history-item-title">
                   <h3>{job.company_name || 'Unknown Company'}</h3>

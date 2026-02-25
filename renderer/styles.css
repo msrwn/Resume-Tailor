@@ -1187,6 +1187,7 @@ button:disabled {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 .editor-textarea {
@@ -1222,4 +1223,83 @@ button:disabled {
 
 .editor-info span {
   font-family: 'Courier New', monospace;
+}
+
+/* Profiles screen - Prompts editor */
+.prompts-editor {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 24px;
+  height: 100%;
+  align-items: flex-start;
+}
+
+.prompts-list {
+  border-right: 1px solid #eee;
+  padding-right: 16px;
+}
+
+.prompts-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.prompts-list-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.prompts-editor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.prompts-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #555;
+}
+
+.prompts-name-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.prompts-name-input:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.prompts-actions {
+  margin-top: 8px;
+}
+
+/* Make prompts editor responsive on smaller viewports */
+@media (max-width: 1100px) {
+  .prompts-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .prompts-list {
+    border-right: none;
+    border-bottom: 1px solid #eee;
+    padding-right: 0;
+    padding-bottom: 16px;
+  }
+}
+
+@media (max-height: 800px) {
+  .prompts-editor .editor-textarea {
+    min-height: 260px;
+  }
 }

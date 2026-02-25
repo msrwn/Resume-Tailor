@@ -18,10 +18,21 @@ export type Profile = {
   profile_id: string;
   name: string;
   rules_text: string;
+  base_resume_text: string;
   template_html: string;
   rules_hash: string;
   template_hash: string;
   is_default: number;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+};
+
+export type ProfilePrompt = {
+  prompt_id: string;
+  profile_id: string;
+  name: string;
+  prompt_text: string;
   created_at: string;
   updated_at: string;
   archived_at: string | null;
@@ -139,6 +150,31 @@ export type CallBMeta = {
   role_display?: string;
   normalized_company_slug?: string;
   normalized_role_slug?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  contact_github?: string;
+  contact_address?: string;
+};
+
+export type CallBEducationEntry = {
+  institution: string;
+  degree: string;
+  location?: string;
+  /** Free-form dates string, e.g. "2014–2018" or "Expected 2026". */
+  dates?: string;
+  /** Optional notes, e.g. honors or specialization. */
+  notes?: string;
+};
+
+export type CallBFreelanceProject = {
+  role_title: string;
+  client_name: string;
+  project_name: string;
+  project_description?: string;
+  location?: string;
+  duration?: string;
+  tech_stack?: string[];
+  bullets: Array<{ text: string; emphasized_terms?: string[] }>;
 };
 
 export type CallBResume = {
@@ -154,8 +190,11 @@ export type CallBResume = {
     duration?: string;
     bullets: Array<{ text: string; emphasized_terms?: string[] }>;
   }>;
+  /** Dedicated freelance/client projects (output format); when present, used for freelancing section. */
+  freelance_projects?: CallBFreelanceProject[];
   certificates?: Array<{ title: string; url: string }>;
-  education?: string;
+  /** Education entries; supports multiple degrees. */
+  education?: CallBEducationEntry[];
 };
 
 /** One profile's result from multi-profile generation. */

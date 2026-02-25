@@ -1,6 +1,6 @@
 {
   "name": "resume-tailor",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "Local-first Electron desktop app for tailoring resumes to job descriptions",
   "main": "dist/main/index.js",
   "author": "",

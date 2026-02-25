@@ -420,6 +420,94 @@
 
 ---
 
+## 11) Milestone 11 — Base Resume + Multi-Prompt Refactor (Breaking Change)
+
+### 11.1 Goals
+- Make **base resume (plain text)** the source of truth per Profile.
+- Allow **multiple prompts per Profile** (e.g., Mobile, Web) and select a prompt on the Generate screen.
+- Update Call B to return a **structured `resume` object + `cover_letter` + `qa`**, instead of the legacy `resume_payload` blob.
+- Preserve existing behavior for **History, PDFs, QA feature, and Settings**.
+
+### 11.2 Development tasks
+
+#### A) Data model & migrations
+- [ ] Add `base_resume_text` column to `profiles` (TEXT NOT NULL, default empty string for migration).
+- [ ] Create `profile_prompts` table:
+  - `prompt_id`, `profile_id`, `name`, `prompt_text`, timestamps, `archived_at`.
+  - Index on `profile_id`.
+- [ ] Optionally set a **default prompt** for each profile (code-level rule: first non-archived).
+- [ ] Wire migrations in `main/db/migrations.ts` and bump `user_version`.
+
+#### B) Shared types & contracts
+- [ ] Update `CallBOutput` in `shared/types.ts`:
+  - Replace/extend legacy `resume_payload` with `resume` object matching the new schema (summary, skills, experience, freelance, education[], certificates, etc.).
+  - Ensure `cover_letter` is a plain-text field.
+  - Keep `qa` as `Array<{question: string; answer: string}>` (from QA feature).
+- [ ] Update any legacy references to `resume_payload` to use `resume` or to go through a compatibility adapter.
+
+#### C) LLM adapter & prompts
+- [ ] Extend `runResumePayload()` in `main/llm/openaiAdapter.ts` to accept:
+  - `baseResumeText`
+  - `promptText` (selected profile-prompt)
+  - `questions?: string[]`
+- [ ] Update `buildCallBMessages()` in `main/llm/callBPrompt.ts` to:
+  - Include **base resume text** in INPUTS.
+  - Include **selected prompt text** as the main instruction block.
+  - Keep JD extraction and JD raw text sections.
+  - Append questions (if any) exactly as per QA feature spec.
+- [ ] Update Call B instructions to request the **new structured `resume` JSON** contract (matching TRD/PRD).
+
+#### D) Pipeline & merge layer
+- [ ] Update `runFullGeneration()` and `runOneProfileGeneration()` in `main/generation/pipeline.ts` to:
+  - Load `base_resume_text` and selected prompt for the Profile.
+  - Pass them into `runResumePayload()`.
+- [ ] Update `validateCallBOutput()` in `main/validation/validator.ts` to:
+  - Work against the new `resume` structure.
+  - Keep QA validation logic intact.
+- [ ] Update `buildMergePayloadFromStructuredResume()` and `mergeResumeTemplate()` in `main/pdf/templateMerge.ts` to:
+  - Map the new `resume` structure into the default HTML template.
+  - Preserve existing `<strong>` constraints behavior for summary/experience and keep Skills plain text.
+- [ ] Maintain a **compatibility path** for old generations that still have `resume_payload` (if we need to re-open old outputs).
+
+#### E) Profiles UI & Generate screen
+- [ ] Update Profiles screen to:
+  - Add a **Base Resume** tab (plain-text editor).
+  - Add a **Prompts** tab (list with CRUD for prompts).
+- [ ] Update Generate screen to:
+  - Show a **Prompt dropdown** after the Profile dropdown.
+  - Persist and restore the last-used prompt per Profile (optional).
+  - Keep Questions input and QA behavior unchanged.
+
+#### F) History & QA
+- [ ] Ensure History detail still shows:
+  - Company, role, contact info, follow-up links.
+  - Which Profile and **which Prompt** were used (store prompt name or id in generations if needed).
+- [ ] Confirm QA PDFs still generate based on `qa` array and are not affected by schema changes.
+
+### 11.3 Automatic tests
+
+**Unit**
+- [ ] New migration tests for `base_resume_text` + `profile_prompts`.
+- [ ] `CallBOutput` schema tests for the new `resume` structure.
+- [ ] Template merge tests that:
+  - Convert a sample `resume` JSON (derived from the base resume) into valid HTML.
+
+**Integration (mocked HTTP)**
+- [ ] Mock Call B response using new JSON schema:
+  - Verify PDFs are generated successfully.
+  - Verify QA PDF generation remains intact when questions are present.
+
+### 11.4 Manual tests
+- [ ] Create a Profile, paste full base resume, create two prompts (“Mobile”, “Web”).
+- [ ] Generate for the same JD with each prompt:
+  - Confirm resume content meaningfully differs as per prompt.
+  - Confirm cover letter and QA outputs are generated and saved.
+- [ ] Restart app and re-open History items:
+  - Confirm you can still open Resume, Cover, JD.txt, QA PDFs.
+- [ ] Confirm legacy generations (pre-refactor) still appear in History and can open files (even if they used the old payload).
+
+---
+
 # A) Detailed Automatic Test Catalog (Suggested)
 
 ## A.1 Unit Test Suites

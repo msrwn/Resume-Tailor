@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor** (x.Y.0): New features (e.g. QA, multi-profile). Backward compatible.
 - **Major** (X.0.0): Breaking API or data changes.
 
+## [1.0.0] - 2026-02-24
+
+### Changed
+- **Breaking**: Profiles now store a **Base Resume (plain text)** as the source of truth for the candidate instead of relying solely on prompt text.
+- **Breaking**: DB schema bumped to migration **3**:
+  - Added `base_resume_text` column to `profiles`.
+  - Added `profile_prompts` table to store multiple prompts per profile.
+
+### Added
+- **Base Resume + Multi-Prompt flow**:
+  - Profiles screen:
+    - New **Base Resume** tab with a large textarea for the full resume (plain text).
+    - New **Prompts** tab to create/edit/archive prompts per profile.
+  - Generate screen:
+    - When exactly one profile is selected and it has prompts, a **Prompt dropdown** appears to select which prompt to use for that run.
+  - Pipeline & LLM:
+    - Call B now receives base resume text + (optional) selected prompt text + rules + JD + Call A + questions for every generation.
+    - Structured `resume` JSON is still merged into the HTML template as before; QA behaviour is unchanged.
+
+### Notes
+- Multi-profile generation continues to work; prompts are applied only in the single-profile path for this release.
+- Existing databases are migrated in-place; historical generations remain valid and visible in History.
+
 ## [0.3.0] - 2026-02-19
 
 ### Added
@@ -89,6 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **1.0.0** (2026-02-24): Base Resume + Multi-Prompt refactor (breaking: new DB fields, Call B now grounded in base resume and optional prompt per profile).
 - **0.3.0** (2026-02-19): Multi-task tabs on Generate screen (Task 1–10, per-task state, tab badges, Ctrl+1…0)
 - **0.2.1** (2026-02-16): Multi-profile generation; UI fix – profile checkbox alignment; versioning policy documented
 - **0.2.0** (2026-02-16): QA Feature – Questions & Answers PDF generation

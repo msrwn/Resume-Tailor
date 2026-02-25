@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import type { Profile } from '@shared/types';
+import type { Profile, ProfilePrompt } from '@shared/types';
+
+type EditorTab = 'base' | 'template' | 'prompts';
 
 function ProfilesScreen() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -7,10 +9,14 @@ function ProfilesScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'rules' | 'template'>('rules');
+  const [activeTab, setActiveTab] = useState<EditorTab>('base');
   const [profileName, setProfileName] = useState('');
-  const [rulesText, setRulesText] = useState('');
+  const [baseResumeText, setBaseResumeText] = useState('');
   const [templateHtml, setTemplateHtml] = useState('');
+  const [prompts, setPrompts] = useState<ProfilePrompt[]>([]);
+  const [promptName, setPromptName] = useState('');
+  const [promptText, setPromptText] = useState('');
+  const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [validationResult, setValidationResult] = useState<{
     valid: boolean;
@@ -24,10 +30,11 @@ function ProfilesScreen() {
   useEffect(() => {
     if (selectedProfile) {
       setProfileName(selectedProfile.name);
-      setRulesText(selectedProfile.rules_text);
+      setBaseResumeText(selectedProfile.base_resume_text ?? '');
       setTemplateHtml(selectedProfile.template_html);
       setEditing(false);
       setValidationResult(null);
+      loadPrompts(selectedProfile.profile_id);
     }
   }, [selectedProfile]);
 
@@ -54,6 +61,23 @@ function ProfilesScreen() {
     }
   };
 
+  const loadPrompts = async (profileId: string) => {
+    try {
+      const res = await window.electronAPI.profilePromptsList(profileId);
+      if (res.success && res.prompts) {
+        setPrompts(res.prompts);
+      } else {
+        setPrompts([]);
+      }
+      setEditingPromptId(null);
+      setPromptName('');
+      setPromptText('');
+    } catch (err) {
+      console.error('Failed to load profile prompts:', err);
+      setPrompts([]);
+    }
+  };
+
   const handleCreateNew = async () => {
     if (!selectedProfile) {
       alert('Please select a profile to clone');
@@ -65,6 +89,7 @@ function ProfilesScreen() {
       const response = await window.electronAPI.profilesCreate({
         name: newName,
         rules_text: selectedProfile.rules_text,
+        base_resume_text: selectedProfile.base_resume_text,
         template_html: selectedProfile.template_html,
         is_default: false,
       });
@@ -88,7 +113,9 @@ function ProfilesScreen() {
     try {
       const response = await window.electronAPI.profilesUpdate(selectedProfile.profile_id, {
         name: profileName,
-        rules_text: rulesText,
+        // rules_text is deprecated and ignored by the pipeline; keep existing value.
+        rules_text: selectedProfile.rules_text,
+        base_resume_text: baseResumeText,
         template_html: templateHtml,
       });
 
@@ -148,7 +175,8 @@ function ProfilesScreen() {
   const handleValidate = async () => {
     try {
       const response = await window.electronAPI.profilesValidate({
-        rules_text: rulesText,
+        // rules_text is deprecated; send a non-empty placeholder to satisfy older handlers.
+        rules_text: 'deprecated',
         template_html: templateHtml,
       });
 
@@ -173,11 +201,75 @@ function ProfilesScreen() {
   const handleCancel = () => {
     if (selectedProfile) {
       setProfileName(selectedProfile.name);
-      setRulesText(selectedProfile.rules_text);
+      setBaseResumeText(selectedProfile.base_resume_text ?? '');
       setTemplateHtml(selectedProfile.template_html);
     }
     setEditing(false);
     setValidationResult(null);
+  };
+
+  const handlePromptEdit = (p: ProfilePrompt) => {
+    setEditingPromptId(p.prompt_id);
+    setPromptName(p.name);
+    setPromptText(p.prompt_text);
+  };
+
+  const handlePromptNew = () => {
+    setEditingPromptId(null);
+    setPromptName('');
+    setPromptText('');
+    setActiveTab('prompts');
+  };
+
+  const handlePromptSave = async () => {
+    if (!selectedProfile) return;
+    if (!promptName.trim()) {
+      alert('Prompt name is required');
+      return;
+    }
+    if (!promptText.trim()) {
+      alert('Prompt text is required');
+      return;
+    }
+    try {
+      if (editingPromptId) {
+        const res = await window.electronAPI.profilePromptsUpdate(editingPromptId, {
+          name: promptName.trim(),
+          prompt_text: promptText,
+        });
+        if (!res.success) {
+          alert(res.error || 'Failed to update prompt');
+        }
+      } else {
+        const res = await window.electronAPI.profilePromptsCreate({
+          profile_id: selectedProfile.profile_id,
+          name: promptName.trim(),
+          prompt_text: promptText,
+        });
+        if (!res.success) {
+          alert(res.error || 'Failed to create prompt');
+        }
+      }
+      await loadPrompts(selectedProfile.profile_id);
+    } catch (err) {
+      console.error('Failed to save prompt', err);
+      alert('Failed to save prompt');
+    }
+  };
+
+  const handlePromptArchive = async (promptId: string) => {
+    if (!confirm('Archive this prompt?')) return;
+    try {
+      const res = await window.electronAPI.profilePromptsArchive(promptId);
+      if (!res.success) {
+        alert(res.error || 'Failed to archive prompt');
+      } else if (selectedProfile) {
+        await loadPrompts(selectedProfile.profile_id);
+      }
+    } catch (err) {
+      console.error('Failed to archive prompt', err);
+      alert('Failed to archive prompt');
+    }
   };
 
   if (loading) {
@@ -324,10 +416,10 @@ function ProfilesScreen() {
 
               <div className="editor-tabs">
                 <button
-                  className={`tab-button ${activeTab === 'rules' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('rules')}
+                  className={`tab-button ${activeTab === 'base' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('base')}
                 >
-                  Rules
+                  Base Resume
                 </button>
                 <button
                   className={`tab-button ${activeTab === 'template' ? 'active' : ''}`}
@@ -335,21 +427,28 @@ function ProfilesScreen() {
                 >
                   Resume Template
                 </button>
+                <button
+                  className={`tab-button ${activeTab === 'prompts' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('prompts')}
+                >
+                  Prompts
+                </button>
               </div>
 
               <div className="editor-content">
-                {activeTab === 'rules' ? (
+                {activeTab === 'base' && (
                   <textarea
-                    value={rulesText}
+                    value={baseResumeText}
                     onChange={(e) => {
-                      setRulesText(e.target.value);
+                      setBaseResumeText(e.target.value);
                       setEditing(true);
                     }}
                     className="editor-textarea"
-                    placeholder="Enter rules text here..."
+                    placeholder="Paste your full base resume here (plain text)..."
                     rows={20}
                   />
-                ) : (
+                )}
+                {activeTab === 'template' && (
                   <textarea
                     value={templateHtml}
                     onChange={(e) => {
@@ -360,6 +459,77 @@ function ProfilesScreen() {
                     placeholder="Enter HTML template here..."
                     rows={20}
                   />
+                )}
+                {activeTab === 'prompts' && (
+                  <div className="prompts-editor">
+                    <div className="prompts-list">
+                      <div className="prompts-list-header">
+                        <h3>Prompts</h3>
+                        <button className="button-secondary" onClick={handlePromptNew}>
+                          New Prompt
+                        </button>
+                      </div>
+                      {prompts.length === 0 ? (
+                        <div className="empty-state">
+                          <p>No prompts for this profile yet.</p>
+                        </div>
+                      ) : (
+                        <ul className="prompts-list-items">
+                          {prompts.map((p) => (
+                            <li
+                              key={p.prompt_id}
+                              className={`prompt-item ${
+                                editingPromptId === p.prompt_id ? 'active' : ''
+                              }`}
+                            >
+                              <div
+                                className="prompt-item-main"
+                                onClick={() => handlePromptEdit(p)}
+                              >
+                                <span className="prompt-item-name">{p.name}</span>
+                                <span className="prompt-item-updated">
+                                  Updated: {new Date(p.updated_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <button
+                                className="button-link button-small"
+                                onClick={() => handlePromptArchive(p.prompt_id)}
+                              >
+                                Archive
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="prompts-editor-form">
+                      <label className="prompts-label">
+                        Prompt name
+                        <input
+                          type="text"
+                          value={promptName}
+                          onChange={(e) => setPromptName(e.target.value)}
+                          className="prompts-name-input"
+                          placeholder="e.g. Mobile-focused, Web platform"
+                        />
+                      </label>
+                      <label className="prompts-label">
+                        Prompt text
+                        <textarea
+                          value={promptText}
+                          onChange={(e) => setPromptText(e.target.value)}
+                          className="editor-textarea"
+                          placeholder="Enter the full prompt/instructions for this profile & role..."
+                          rows={14}
+                        />
+                      </label>
+                      <div className="prompts-actions">
+                        <button className="button-primary" onClick={handlePromptSave}>
+                          {editingPromptId ? 'Save Prompt' : 'Create Prompt'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 

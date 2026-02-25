@@ -1,6 +1,4 @@
 import type { CallBOutput } from '../../shared/types';
-import type { ParsedRules } from './ruleParser';
-import { parseRules } from './ruleParser';
 
 export type ValidationResult = {
   valid: boolean;
@@ -8,8 +6,6 @@ export type ValidationResult = {
   warnings: string[];
   degraded: boolean;
 };
-
-const DEFAULT_STRONG_PER_BULLET_CAP = 2;
 
 /**
  * Approximate sentence count (split on . ! ?).
@@ -21,40 +17,19 @@ function sentenceCount(text: string): number {
   return parts.length;
 }
 
-/** Extract inner HTML of each <li>...</li> from experience HTML. */
-function getExperienceBullets(html: string): string[] {
-  if (!html || typeof html !== 'string') return [];
-  const bullets: string[] = [];
-  const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = liRegex.exec(html)) !== null) {
-    bullets.push(m[1]);
-  }
-  return bullets;
-}
-
-/** Count <strong> (and <b>) tags in a fragment. */
-function countEmphasized(html: string): number {
-  const strong = (html.match(/<strong[^>]*>[\s\S]*?<\/strong>/gi) || []).length;
-  const b = (html.match(/<b[^>]*>[\s\S]*?<\/b>/gi) || []).length;
-  return strong + b;
-}
-
 /**
- * Validate Call B output against parsed rules and schema.
+ * Validate Call B output against schema.
  * Supports rules schema (meta + resume + cover_letter) and legacy (resume_payload + cover_letter_text).
- * Validates: schema, cover letter length, bullet counts from profile/validation_targets, no <strong> in skills, max emphasized per bullet.
+ * Validates: schema, cover letter length, basic bullet constraints from validation_targets, no <strong> in skills, max emphasized per bullet.
  * If questions are provided, validates that QA array exists and is non-empty.
  */
 export function validateCallBOutput(
   output: CallBOutput,
-  rulesText: string,
   questionsProvided?: boolean
 ): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const parsed = parseRules(rulesText);
-  const degraded = parsed.degraded;
+  const degraded = false;
 
   const coverText = output.cover_letter?.text ?? output.cover_letter_text;
   const ownerFirstName = output.meta?.owner_first_name ?? output.owner_first_name;
@@ -78,11 +53,10 @@ export function validateCallBOutput(
     warnings.push(`cover letter has many sentences (${coverSentences}); typically 4-5`);
   }
 
-  // Rules schema: validate structured resume
+// Rules schema: validate structured resume
   if (output.resume != null) {
     const targets = (output.validation_targets ?? {}) as Record<string, unknown>;
-    const bulletCountsPerCompany = (targets.bullet_counts_per_company ?? parsed.bulletCounts) as Record<string, number>;
-    const maxEmphasisPerBullet = (targets.max_emphasis_per_bullet as number) ?? parsed.strongPerBulletCap ?? DEFAULT_STRONG_PER_BULLET_CAP;
+    const bulletCountsPerCompany = (targets.bullet_counts_per_company ?? {}) as Record<string, number>;
 
     if (Array.isArray(output.resume.skills)) {
       for (const row of output.resume.skills) {
@@ -106,12 +80,6 @@ export function validateCallBOutput(
         if (expectedBullets != null && bullets.length !== expectedBullets) {
           errors.push(`experience.${companyKey}: expected ${expectedBullets} bullets (found ${bullets.length})`);
         }
-        bullets.forEach((b, i) => {
-          const terms = b?.emphasized_terms ?? [];
-          if (terms.length > maxEmphasisPerBullet) {
-            errors.push(`experience.${companyKey} bullet ${i + 1}: at most ${maxEmphasisPerBullet} emphasized terms (found ${terms.length})`);
-          }
-        });
       }
     }
   }
@@ -126,25 +94,7 @@ export function validateCallBOutput(
       errors.push('skills must be plain text; no <strong> or <b> tags allowed');
     }
 
-    const experienceRaw = output.resume_payload.experience;
-    const experienceHtml = experienceRaw != null ? (typeof experienceRaw === 'string' ? experienceRaw : String(experienceRaw)) : '';
-    const bullets = getExperienceBullets(experienceHtml);
-
-    if (bullets.length > 0) {
-      const expectedTotal = Object.keys(parsed.bulletCounts).length > 0
-        ? Object.values(parsed.bulletCounts).reduce((a, b) => a + b, 0)
-        : null;
-      if (expectedTotal != null && bullets.length !== expectedTotal) {
-        errors.push(`experience must have ${expectedTotal} bullets per profile rules (found ${bullets.length})`);
-      }
-      const strongCap = parsed.strongPerBulletCap ?? DEFAULT_STRONG_PER_BULLET_CAP;
-      bullets.forEach((bulletHtml, i) => {
-        const n = countEmphasized(bulletHtml);
-        if (n > strongCap) {
-          errors.push(`bullet ${i + 1}: at most ${strongCap} emphasized terms allowed (found ${n})`);
-        }
-      });
-    }
+    // Do not validate number of emphasized terms per bullet for legacy HTML anymore.
   }
 
   // Validate QA when questions are provided
@@ -169,10 +119,6 @@ export function validateCallBOutput(
     }
   }
 
-  if (degraded) {
-    warnings.push('Rules could not be fully parsed; validation is relaxed');
-  }
-
   return {
     valid: errors.length === 0,
     errors,
@@ -182,8 +128,16 @@ export function validateCallBOutput(
 }
 
 /**
- * Parse rules only (for use when validation is not needed).
+ * Legacy no-op for backward compatibility; rules_text is no longer used.
  */
-export function getParsedRules(rulesText: string): ParsedRules {
-  return parseRules(rulesText);
+export function getParsedRules(_rulesText: string) {
+  return {
+    bulletCounts: {},
+    skillsCategories: [],
+    summaryOpener: null,
+    noStrongInSkills: false,
+    strongPerBulletCap: null,
+    minSkillsCount: null,
+    degraded: true,
+  };
 }

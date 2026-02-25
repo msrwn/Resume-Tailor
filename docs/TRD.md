@@ -4,10 +4,10 @@
 ### 1.1 Deliverables
 - Electron desktop application (Windows MVP; macOS optional later)
 - Local database (SQLite) with migrations
-- Profiles feature (Rules + Template editing, default profile)
+- Profiles feature (Base Resume + Prompts + Template editing, default profile)
 - Generate pipeline:
   - Call A (JD Extraction) → structured job info + contact info
-  - Call B (Resume Payload + Cover Letter) → strict JSON
+  - Call B (Tailored Resume JSON + Cover Letter + QA) → strict JSON
   - Local validation from selected Profile rules_text
   - Local PDF generation (no local server)
   - Deterministic filesystem output under `{outputRootPath}/{YYYY_MM_DD}/...`
@@ -103,8 +103,9 @@ LLM:
 #### Table: `profiles`
 - `profile_id` TEXT PK
 - `name` TEXT NOT NULL
-- `rules_text` TEXT NOT NULL
-- `template_html` TEXT NOT NULL
+- `rules_text` TEXT NOT NULL              -- still used for validation hints and legacy behavior
+- `base_resume_text` TEXT NOT NULL        -- plain-text base resume; single source of truth
+- `template_html` TEXT NOT NULL           -- resume HTML template
 - `rules_hash` TEXT NOT NULL
 - `template_hash` TEXT NOT NULL
 - `is_default` INTEGER NOT NULL DEFAULT 0
@@ -114,6 +115,18 @@ LLM:
 
 Constraint (enforced in code):
 - only one `is_default = 1`
+
+#### Table: `profile_prompts`
+- `prompt_id` TEXT PK
+- `profile_id` TEXT NOT NULL  -- FK to profiles
+- `name` TEXT NOT NULL        -- e.g. "Mobile-focused", "Web platform"
+- `prompt_text` TEXT NOT NULL -- full instructions sent to the LLM
+- `created_at` TEXT NOT NULL
+- `updated_at` TEXT NOT NULL
+- `archived_at` TEXT NULL
+
+Indexes:
+- `idx_prompts_profile_id`
 
 #### Table: `jobs`
 - `job_id` TEXT PK
@@ -231,12 +244,12 @@ Overwrite rule:
 ## 7) LLM Integration Requirements
 ### 7.1 Call Design (required)
 - **Call A**: JD extraction
-- **Call B**: resume payload + cover letter
+- **Call B**: tailored resume JSON + cover letter (+ QA when questions provided)
 
 ### 7.2 Adapter interface
 Implement an adapter with:
 - `runJdExtraction({ jdText, rulesText, jobUrl, model, ... })`
-- `runResumePayload({ jdText, rulesText, jdExtraction, model, ... })`
+- `runResumePayload({ jdText, baseResumeText, promptText, rulesText, jdExtraction, questions, model, ... })`
 
 Adapter must return:
 - `rawText` (for debugging, capped in DB)
@@ -285,12 +298,21 @@ For each call:
 - `owner_first_name` (string)
 - `company_name` (string | null)
 - `job_title` (string | null)
-- `resume_payload` (object)  <!-- template merge input -->
-- `cover_letter_text` (string)
+- `resume` (object) — structured resume derived from **base resume + JD + selected prompt**, including at least:
+  - `full_name`, `first_name`, `title`
+  - `contact` (phone, email, github, address)
+  - `summary` (plain text)
+  - `skills` (array of `{category, items[]}`)
+  - `experience` (array of roles with bullets)
+  - `freelance_projects` (array with bullets)
+  - `education` (array of degrees; supports multiple educations)
+  - `certificates` (array with titles/URLs)
+- `cover_letter` (string; 4–5 sentences)
+- `qa` (optional) — array of `{question: string; answer: string}` when questions are provided.
 
 Notes:
-- `resume_payload` shape is internal to the template merge engine.
-- Validation rules must come from selected Profile rules_text.
+- The exact nested shapes inside `resume` are owned by the template-merge layer but must remain stable enough for the default template and validators.
+- Validation rules continue to come from the selected Profile `rules_text` (bullet counts, `<strong>` constraints, etc.).
 
 ---
 

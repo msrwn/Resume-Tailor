@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { AppConfig, Profile, Job, Generation } from '@shared/types';
+import type { AppConfig, Profile, ProfilePrompt, Job, Generation } from '@shared/types';
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -39,9 +39,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('profiles:get', profileId) as Promise<{ success: boolean; profile?: Profile | null; error?: string }>,
   profilesGetDefault: () =>
     ipcRenderer.invoke('profiles:getDefault') as Promise<{ success: boolean; profile?: Profile | null; error?: string }>,
-  profilesCreate: (data: { name: string; rules_text: string; template_html: string; is_default?: boolean }) =>
+  profilesCreate: (data: { name: string; rules_text: string; base_resume_text: string; template_html: string; is_default?: boolean }) =>
     ipcRenderer.invoke('profiles:create', data) as Promise<{ success: boolean; profile?: Profile; error?: string }>,
-  profilesUpdate: (profileId: string, data: Partial<{ name: string; rules_text: string; template_html: string; is_default: boolean }>) =>
+  profilesUpdate: (profileId: string, data: Partial<{ name: string; rules_text: string; base_resume_text: string; template_html: string; is_default: boolean }>) =>
     ipcRenderer.invoke('profiles:update', profileId, data) as Promise<{ success: boolean; profile?: Profile; error?: string }>,
   profilesSetDefault: (profileId: string) =>
     ipcRenderer.invoke('profiles:setDefault', profileId) as Promise<{ success: boolean; error?: string }>,
@@ -49,6 +49,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('profiles:archive', profileId) as Promise<{ success: boolean; error?: string }>,
   profilesValidate: (data: { rules_text: string; template_html: string }) =>
     ipcRenderer.invoke('profiles:validate', data) as Promise<{ success: boolean; valid?: boolean; errors?: string[]; error?: string }>,
+
+  // Profile prompts
+  profilePromptsList: (profileId: string) =>
+    ipcRenderer.invoke('profilePrompts:list', profileId) as Promise<{ success: boolean; prompts?: ProfilePrompt[]; error?: string }>,
+  profilePromptsCreate: (data: { profile_id: string; name: string; prompt_text: string }) =>
+    ipcRenderer.invoke('profilePrompts:create', data) as Promise<{ success: boolean; prompt?: ProfilePrompt; error?: string }>,
+  profilePromptsUpdate: (promptId: string, data: Partial<{ name: string; prompt_text: string }>) =>
+    ipcRenderer.invoke('profilePrompts:update', promptId, data) as Promise<{ success: boolean; prompt?: ProfilePrompt; error?: string }>,
+  profilePromptsArchive: (promptId: string) =>
+    ipcRenderer.invoke('profilePrompts:archive', promptId) as Promise<{ success: boolean; error?: string }>,
 
   // Jobs
   jobsGet: (jobId: string) =>
@@ -80,7 +90,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       rawResponse?: string;
       extraction?: import('@shared/types').CallAOutput;
     }>,
-  generationRunFull: (params: { jdText: string; sourceUrl?: string; profileId?: string; profileIds?: string[]; questions?: string[]; taskId?: number }) =>
+  generationRunFull: (params: { jdText: string; sourceUrl?: string; profileId?: string; profileIds?: string[]; promptId?: string; questions?: string[]; taskId?: number }) =>
     ipcRenderer.invoke('generation:runFull', params) as Promise<{
       success: boolean;
       jobId?: string;
@@ -129,10 +139,14 @@ export type ElectronAPI = {
   profilesList: () => Promise<{ success: boolean; profiles?: Profile[]; error?: string }>;
   profilesGet: (profileId: string) => Promise<{ success: boolean; profile?: Profile | null; error?: string }>;
   profilesGetDefault: () => Promise<{ success: boolean; profile?: Profile | null; error?: string }>;
-  profilesCreate: (data: { name: string; rules_text: string; template_html: string; is_default?: boolean }) => Promise<{ success: boolean; profile?: Profile; error?: string }>;
-  profilesUpdate: (profileId: string, data: Partial<{ name: string; rules_text: string; template_html: string; is_default: boolean }>) => Promise<{ success: boolean; profile?: Profile; error?: string }>;
+  profilesCreate: (data: { name: string; rules_text: string; base_resume_text: string; template_html: string; is_default?: boolean }) => Promise<{ success: boolean; profile?: Profile; error?: string }>;
+  profilesUpdate: (profileId: string, data: Partial<{ name: string; rules_text: string; base_resume_text: string; template_html: string; is_default: boolean }>) => Promise<{ success: boolean; profile?: Profile; error?: string }>;
   profilesSetDefault: (profileId: string) => Promise<{ success: boolean; error?: string }>;
   profilesArchive: (profileId: string) => Promise<{ success: boolean; error?: string }>;
+  profilePromptsList: (profileId: string) => Promise<{ success: boolean; prompts?: ProfilePrompt[]; error?: string }>;
+  profilePromptsCreate: (data: { profile_id: string; name: string; prompt_text: string }) => Promise<{ success: boolean; prompt?: ProfilePrompt; error?: string }>;
+  profilePromptsUpdate: (promptId: string, data: Partial<{ name: string; prompt_text: string }>) => Promise<{ success: boolean; prompt?: ProfilePrompt; error?: string }>;
+  profilePromptsArchive: (promptId: string) => Promise<{ success: boolean; error?: string }>;
   jobsGet: (jobId: string) => Promise<{ success: boolean; job?: Job | null; error?: string }>;
   jobsCreate: (data: { jd_text: string; source_url?: string }) => Promise<{ success: boolean; job?: Job; error?: string }>;
   historyList: (query?: { company_name?: string; job_title?: string; keyword?: string; limit?: number; offset?: number }) => Promise<{ success: boolean; results?: Array<{ job: Job; generation: Generation | null }>; error?: string }>;
@@ -146,7 +160,7 @@ export type ElectronAPI = {
     rawResponse?: string;
     extraction?: import('@shared/types').CallAOutput;
   }>;
-  generationRunFull: (params: { jdText: string; sourceUrl?: string; profileId?: string; profileIds?: string[]; questions?: string[]; taskId?: number }) => Promise<{
+  generationRunFull: (params: { jdText: string; sourceUrl?: string; profileId?: string; profileIds?: string[]; promptId?: string; questions?: string[]; taskId?: number }) => Promise<{
     success: boolean;
     jobId?: string;
     generationId?: string;

@@ -6,6 +6,7 @@ import { setApiKey, getApiKey, hasApiKey, clearApiKey } from './config/secretsMa
 import { initDatabase, closeDatabase } from './db/database';
 import { seedDefaultProfile } from './db/seed';
 import * as profilesDao from './db/profilesDao';
+import * as profilePromptsDao from './db/profilePromptsDao';
 import * as jobsDao from './db/jobsDao';
 import * as generationsDao from './db/generationsDao';
 import { runGenerationCallAOnly, runFullGeneration } from './generation/pipeline';
@@ -242,10 +243,6 @@ ipcMain.handle('profiles:validate', (_event, data: { rules_text: string; templat
   try {
     const errors: string[] = [];
 
-    if (!data.rules_text.trim()) {
-      errors.push('Rules text cannot be empty');
-    }
-
     if (!data.template_html.trim()) {
       errors.push('Template HTML cannot be empty');
     }
@@ -264,6 +261,46 @@ ipcMain.handle('profiles:validate', (_event, data: { rules_text: string; templat
       valid: errors.length === 0,
       errors,
     };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Profile prompts IPC handlers
+ipcMain.handle('profilePrompts:list', (_event, profileId: string) => {
+  try {
+    const prompts = profilePromptsDao.listPromptsForProfile(profileId);
+    return { success: true, prompts };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle('profilePrompts:create', (_event, data: Parameters<typeof profilePromptsDao.createPrompt>[0]) => {
+  try {
+    const prompt = profilePromptsDao.createPrompt(data);
+    return { success: true, prompt };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(
+  'profilePrompts:update',
+  (_event, promptId: string, data: Parameters<typeof profilePromptsDao.updatePrompt>[1]) => {
+    try {
+      const prompt = profilePromptsDao.updatePrompt(promptId, data);
+      return { success: true, prompt };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+);
+
+ipcMain.handle('profilePrompts:archive', (_event, promptId: string) => {
+  try {
+    profilePromptsDao.archivePrompt(promptId);
+    return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };
   }

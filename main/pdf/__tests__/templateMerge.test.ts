@@ -9,6 +9,11 @@ describe('mergeResumeTemplate', () => {
     expect(html).toContain('Experienced developer.');
   });
 
+  it('replaces single-brace placeholder with payload value', () => {
+    const html = mergeResumeTemplate('<p>{summary}</p>', { summary: 'Single brace works' }, 'X');
+    expect(html).toBe('<p>Single brace works</p>');
+  });
+
   it('uses owner_first_name from argument', () => {
     const template = '{{owner_first_name}}';
     const html = mergeResumeTemplate(template, {}, 'Tan');

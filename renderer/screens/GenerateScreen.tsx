@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Profile, Job, CallAOutput, CallBOutput } from '@shared/types';
+import type { Profile, ProfilePrompt, Job, CallAOutput, CallBOutput } from '@shared/types';
+import { GenerateProfilesSelector } from '../components/GenerateProfilesSelector';
+import { GenerateTaskTabs } from '../components/GenerateTaskTabs';
 
 const MAX_TASKS = 10;
 
@@ -70,6 +72,9 @@ function GenerateScreen() {
 
   // Root-level: profile selection and config
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  // Future: use per-profile mapping; current MVP uses a single promptId applied to all selected profiles.
+  const [promptsByProfile, setPromptsByProfile] = useState<Record<string, ProfilePrompt[]>>({});
+  const [selectedPromptId, setSelectedPromptId] = useState<string | undefined>(undefined);
   const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>(() => {
     try {
       const raw = localStorage.getItem('resumeTailor_selectedProfileIds');
@@ -123,6 +128,23 @@ function GenerateScreen() {
           }
           return [];
         });
+        // Load prompts for the first selected profile (for prompt dropdown)
+        const primaryProfileId =
+          (defaultRes.success && defaultRes.profile && defaultRes.profile.profile_id) ||
+          (availableProfiles[0] && availableProfiles[0].profile_id);
+        if (primaryProfileId) {
+          try {
+            const resPrompts = await window.electronAPI.profilePromptsList(primaryProfileId);
+            if (resPrompts.success && resPrompts.prompts) {
+              setPromptsByProfile((prev) => ({ ...prev, [primaryProfileId]: resPrompts.prompts! }));
+              if (!selectedPromptId && resPrompts.prompts.length > 0) {
+                setSelectedPromptId(resPrompts.prompts[0].prompt_id);
+              }
+            }
+          } catch (e) {
+            console.error('Failed to load prompts for default profile', e);
+          }
+        }
       }
       setOutputPathSet(Boolean(configRes?.outputRootPath?.trim()));
       setApiKeySet(keyRes.success && keyRes.exists);
@@ -168,15 +190,35 @@ function GenerateScreen() {
     !activeTask.loading;
 
   const toggleProfile = (profileId: string) => {
-    setSelectedProfileIds((prev) =>
-      prev.includes(profileId) ? prev.filter((id) => id !== profileId) : [...prev, profileId]
-    );
+    setSelectedProfileIds((prev) => {
+      const next = prev.includes(profileId)
+        ? prev.filter((id) => id !== profileId)
+        : [...prev, profileId];
+      // When a single profile is selected, load its prompts for the dropdown
+      if (next.length === 1) {
+        const pid = next[0];
+        window.electronAPI
+          .profilePromptsList(pid)
+          .then((res) => {
+            if (res.success && res.prompts) {
+              setPromptsByProfile((prevPrompts) => ({ ...prevPrompts, [pid]: res.prompts! }));
+              if (!selectedPromptId && res.prompts.length > 0) {
+                setSelectedPromptId(res.prompts[0].prompt_id);
+              }
+            }
+          })
+          .catch((e) => console.error('Failed to load prompts for profile', pid, e));
+      }
+      return next;
+    });
   };
   const selectAllProfiles = () => {
     setSelectedProfileIds(profiles.map((p) => p.profile_id));
+    setSelectedPromptId(undefined);
   };
   const deselectAllProfiles = () => {
     setSelectedProfileIds([]);
+    setSelectedPromptId(undefined);
   };
 
   const parseQuestions = (text: string): string[] => {
@@ -210,6 +252,8 @@ function GenerateScreen() {
         jdText: activeTask.jdText.trim(),
         sourceUrl: activeTask.sourceUrl.trim() || undefined,
         profileIds: selectedProfileIds,
+        // MVP: one promptId applied to all selected profiles; if none, backend falls back to rules/base resume only.
+        promptId: selectedPromptId,
         questions: parsedQuestions.length > 0 ? parsedQuestions : undefined,
         taskId: taskIndex,
       });
@@ -304,9 +348,6 @@ function GenerateScreen() {
     }
   };
 
-  const display = (value: string | null | undefined) =>
-    value != null && value.trim() !== '' ? value.trim() : '—';
-
   // Tab badge status: idle | loading | success | error
   const getTaskBadgeStatus = (n: number): 'idle' | 'loading' | 'success' | 'error' => {
     const t = taskState[n];
@@ -340,69 +381,23 @@ function GenerateScreen() {
       <p className="screen-description">Paste a job description to extract details and prepare a tailored resume.</p>
 
       {/* Root-level profile selection */}
-      <div className="generate-form generate-form-root">
-        <label>Profiles</label>
-        <div className="generate-profiles-list">
-          <div className="generate-profiles-actions">
-            <button type="button" className="button-secondary button-small" onClick={selectAllProfiles}>
-              Select all
-            </button>
-            <button type="button" className="button-secondary button-small" onClick={deselectAllProfiles}>
-              Deselect all
-            </button>
-          </div>
-          <ul className="generate-profile-checkboxes">
-            {profiles.map((p) => (
-              <li key={p.profile_id}>
-                <label className="generate-profile-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={selectedProfileIds.includes(p.profile_id)}
-                    onChange={() => toggleProfile(p.profile_id)}
-                  />
-                  <span>{p.name} {p.is_default ? '(default)' : ''}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
-          {selectedProfileIds.length > 0 && (
-            <p className="generate-profiles-hint">
-              {selectedProfileIds.length} profile{selectedProfileIds.length !== 1 ? 's' : ''} selected
-            </p>
-          )}
-        </div>
-        {(!outputPathSet || !apiKeySet) && (
-          <div className="message message-warning">
-            {!outputPathSet && 'Set the output folder in Settings. '}
-            {!apiKeySet && 'Add your API key in Settings.'}
-          </div>
-        )}
-      </div>
+      <GenerateProfilesSelector
+        profiles={profiles}
+        selectedProfileIds={selectedProfileIds}
+        onToggleProfile={toggleProfile}
+        onSelectAll={selectAllProfiles}
+        onDeselectAll={deselectAllProfiles}
+        outputPathSet={outputPathSet}
+        apiKeySet={apiKeySet}
+      />
 
       {/* Task tabs */}
-      <div className="generate-task-tabs" role="tablist" aria-label="Tasks">
-        {Array.from({ length: MAX_TASKS }, (_, i) => i + 1).map((n) => {
-          const badge = getTaskBadgeStatus(n);
-          return (
-            <button
-              key={n}
-              type="button"
-              role="tab"
-              aria-selected={activeTaskIndex === n}
-              aria-controls="generate-task-panel"
-              id={`generate-task-tab-${n}`}
-              className={`generate-task-tab ${activeTaskIndex === n ? 'active' : ''}`}
-              onClick={() => setActiveTaskIndex(n)}
-              title={n === 10 ? 'Task 10 (Ctrl+0)' : `Task ${n} (Ctrl+${n})`}
-            >
-              <span className="generate-task-tab-label">Task {n}</span>
-              {badge === 'loading' && <span className="generate-task-badge generate-task-badge-loading" aria-hidden>...</span>}
-              {badge === 'success' && <span className="generate-task-badge generate-task-badge-success" aria-hidden>✓</span>}
-              {badge === 'error' && <span className="generate-task-badge generate-task-badge-error" aria-hidden>!</span>}
-            </button>
-          );
-        })}
-      </div>
+      <GenerateTaskTabs
+        activeTaskIndex={activeTaskIndex}
+        maxTasks={MAX_TASKS}
+        getBadgeStatus={getTaskBadgeStatus}
+        onSelectTask={setActiveTaskIndex}
+      />
 
       {/* Active task panel only */}
       <div
@@ -413,6 +408,33 @@ function GenerateScreen() {
       >
         {activeTask && (
           <div className="generate-form">
+            {/* Prompt selection (only when exactly one profile is selected and prompts exist) */}
+            {selectedProfileIds.length === 1 && (
+              (() => {
+                const pid = selectedProfileIds[0];
+                const prompts = promptsByProfile[pid] || [];
+                if (!prompts.length) return null;
+                return (
+                  <>
+                    <label>Prompt (optional)</label>
+                    <select
+                      className="generate-prompt-select"
+                      value={selectedPromptId ?? ''}
+                      onChange={(e) => setSelectedPromptId(e.target.value || undefined)}
+                      disabled={activeTask.loading}
+                    >
+                      <option value="">(Use profile rules + base resume only)</option>
+                      {prompts.map((p) => (
+                        <option key={p.prompt_id} value={p.prompt_id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                );
+              })()
+            )}
+
             <label>Job posting URL (optional)</label>
             <input
               type="url"
@@ -511,83 +533,9 @@ function GenerateScreen() {
               <>
                 <h2>Generation complete</h2>
                 <p className="result-summary">
-                  Resume and cover letter PDFs and JD.txt have been saved to the output folder.
+                  Resume and cover letter were generated for the selected profile.
                 </p>
-                {(activeTask.result.outputDir || activeTask.result.resumePdfPath) && (
-                  <div className="result-actions">
-                    {activeTask.result.outputDir && (
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => window.electronAPI.filesOpenFolder(activeTask.result!.outputDir!)}
-                      >
-                        Open folder
-                      </button>
-                    )}
-                    {activeTask.result.resumePdfPath && (
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => window.electronAPI.filesOpenFile(activeTask.result!.resumePdfPath!)}
-                      >
-                        Open resume PDF
-                      </button>
-                    )}
-                    {activeTask.result.coverPdfPath && (
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => window.electronAPI.filesOpenFile(activeTask.result!.coverPdfPath!)}
-                      >
-                        Open cover letter PDF
-                      </button>
-                    )}
-                    {activeTask.result.qaPdfPath && (
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => window.electronAPI.filesOpenFile(activeTask.result!.qaPdfPath!)}
-                      >
-                        Open QA PDF
-                      </button>
-                    )}
-                  </div>
-                )}
-                <h3>Extracted details</h3>
-                <dl className="extracted-fields">
-                  <dt>Company</dt>
-                  <dd>{display(activeTask.result.job?.company_name ?? activeTask.result.extraction?.company_name)}</dd>
-                  <dt>Job title</dt>
-                  <dd>{display(activeTask.result.job?.job_title ?? activeTask.result.extraction?.job_title)}</dd>
-                  <dt>Job type</dt>
-                  <dd>{display(activeTask.result.job?.job_type ?? activeTask.result.extraction?.job_type)}</dd>
-                  <dt>Contact email</dt>
-                  <dd>{display(activeTask.result.job?.contact_email ?? activeTask.result.extraction?.contact?.email)}</dd>
-                  <dt>Contact phone</dt>
-                  <dd>{display(activeTask.result.job?.contact_phone ?? activeTask.result.extraction?.contact?.phone)}</dd>
-                  {activeTask.result.extraction?.contact?.follow_up_links?.length ? (
-                    <>
-                      <dt>Follow-up links</dt>
-                      <dd>
-                        <ul>
-                          {activeTask.result.extraction.contact.follow_up_links.slice(0, 5).map((link, i) => (
-                            <li key={i}>
-                              <a href={link} target="_blank" rel="noopener noreferrer">
-                                {link}
-                              </a>
-                            </li>
-                          ))}
-                        </ul>
-                      </dd>
-                    </>
-                  ) : null}
-                </dl>
-                {activeTask.result.callBOutput?.cover_letter_text && (
-                  <>
-                    <h3>Cover letter</h3>
-                    <div className="cover-letter-preview">{activeTask.result.callBOutput.cover_letter_text}</div>
-                  </>
-                )}
+                <p className="result-hint">View and open PDFs from the History screen.</p>
               </>
             )}
           </div>
