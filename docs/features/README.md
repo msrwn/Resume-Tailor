@@ -34,6 +34,21 @@ Each feature document should follow this structure:
 - ✅ **Completed** - Implemented and tested
 - 🔄 **On Hold** - Implementation paused
 
+## Release documentation (release doc workflow)
+
+**Release documentation** is the process of recording a shipped change and bumping the version. Use this when you’ve finished a feature or fix and want to document it and cut a version.
+
+**When someone says “run the release doc workflow”** — perform the four steps below (feature doc, features index, changelog, version bump).
+
+1. **Feature doc** – Create or update a feature doc in `docs/features/` (e.g. `FEATURE_NAME_YYYY-MM-DD.md`) with overview, changes, and technical summary.
+2. **Features index** – Update `docs/FEATURES.md` (add to Completed/Planned, link to the feature doc).
+3. **Changelog** – Add a new version section to `CHANGELOG.md` (Added/Changed/Fixed) and update the Version History Summary.
+4. **Version bump** – Update `version` in `package.json` (patch/minor/major per [Semantic Versioning](https://semver.org/) and the policy in `CHANGELOG.md`).
+
+You can call this process **“release documentation”**, **“release doc workflow”**, or **“doing the release docs”**.
+
+---
+
 ## Related Documentation
 
 - Main app documentation: `../PRD.md`, `../TRD.md`, `../IMPLEMENTATION.md`

@@ -12,6 +12,7 @@ Feature documentation is organized by feature name in the `features/` subdirecto
 - **Core MVP** - See `PRD.md`, `TRD.md`, and `IMPLEMENTATION.md` for the main application features
 
 ### Completed Features
+- **[Generate Screen & App Layout Improvements](./features/GENERATE_UI_LAYOUT_2026-02-25.md)** ✅ - Custom Prompt dropdown, full-width layouts (Generate, History, Settings, Changelog), full-width taller Generate button (v1.1.0)
 - **[QA Feature](./features/QA_FEATURE_2026-02-16.md)** ✅ - Questions & Answers PDF generation (v0.2.0)
 
 ### Planned/In Progress Features
@@ -50,4 +51,4 @@ Each feature document should include:
 
 ---
 
-Last updated: 2026-02-16
+Last updated: 2026-02-25

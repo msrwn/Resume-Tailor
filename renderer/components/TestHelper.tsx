@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useModal } from '../context/ModalContext';
 
 /**
  * Test helper component - shows app state for debugging
  * Only visible in development mode
  */
 function TestHelper() {
+  const modal = useModal();
   const [appDataPath, setAppDataPath] = useState<string>('');
   const [version, setVersion] = useState<string>('');
   const [config, setConfig] = useState<any>(null);
@@ -53,7 +55,7 @@ function TestHelper() {
         zIndex: 10000,
         cursor: 'pointer',
       }}
-      onClick={() => {
+      onClick={async () => {
         const details = {
           version,
           appDataPath,
@@ -62,7 +64,7 @@ function TestHelper() {
           databasePath: `${appDataPath}\\app.db`,
         };
         console.log('App State:', details);
-        alert(JSON.stringify(details, null, 2));
+        await modal.alert(JSON.stringify(details, null, 2));
       }}
       title="Click to see details in console"
     >

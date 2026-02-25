@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor** (x.Y.0): New features (e.g. QA, multi-profile). Backward compatible.
 - **Major** (X.0.0): Breaking API or data changes.
 
+## [1.1.0] - 2026-02-25
+
+### Added
+- **Generate screen & app layout improvements**
+  - **Custom Prompt (optional) dropdown**: Replaced native `<select>` with a custom dropdown so option height and width are controllable; options use comfortable tap height and stretch with the form.
+  - **Full-width layouts**: Generate, History, Settings, and Changelog screens now stretch to use available width when the app is full size (removed fixed max-widths). Task tabs (Task 1–10) share the row with `flex: 1`.
+  - **Generate button**: Full-width primary button with increased height (min-height 48px, larger padding and font) for better visibility and clickability.
+
+### Changed
+- **Build**: Removed stale compiled `.js` files in `renderer/` (e.g. `GenerateScreen.js`, `App.js`) so Vite bundles the `.tsx` sources; previously the prompt dropdown and other TSX changes did not appear in the built app because Vite resolved `.js` before `.tsx`.
+
+### Documentation
+- Feature doc: `docs/features/GENERATE_UI_LAYOUT_2026-02-25.md` (includes naming: “resume tailoring” for the product, “generation” / “generate flow” for the pipeline).
+
+---
+
 ## [1.0.0] - 2026-02-24
 
 ### Changed
@@ -112,6 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **1.1.0** (2026-02-25): Generate screen & app layout improvements – custom Prompt dropdown, full-width screens (Generate, History, Settings, Changelog), full-width taller Generate button; removed stale renderer `.js` so build uses TSX.
 - **1.0.0** (2026-02-24): Base Resume + Multi-Prompt refactor (breaking: new DB fields, Call B now grounded in base resume and optional prompt per profile).
 - **0.3.0** (2026-02-19): Multi-task tabs on Generate screen (Task 1–10, per-task state, tab badges, Ctrl+1…0)
 - **0.2.1** (2026-02-16): Multi-profile generation; UI fix – profile checkbox alignment; versioning policy documented

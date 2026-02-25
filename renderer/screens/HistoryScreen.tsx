@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Job, Generation } from '@shared/types';
+import { useModal } from '../context/ModalContext';
 
 type HistoryResult = {
   job: Job;
@@ -8,6 +9,7 @@ type HistoryResult = {
 };
 
 function HistoryScreen() {
+  const modal = useModal();
   const [results, setResults] = useState<HistoryResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -135,7 +137,7 @@ function HistoryScreen() {
                         await window.electronAPI.filesOpenFolder(generation!.output_dir!);
                       } catch (err) {
                         console.error('Failed to open folder:', err);
-                        alert('Failed to open folder');
+                        await modal.alert('Failed to open folder');
                       }
                     }}
                     className="button-link"
@@ -149,7 +151,7 @@ function HistoryScreen() {
                           await window.electronAPI.filesOpenFile(generation!.resume_pdf_path!);
                         } catch (err) {
                           console.error('Failed to open file:', err);
-                          alert('Failed to open file');
+                          await modal.alert('Failed to open file');
                         }
                       }}
                       className="button-link"
@@ -165,7 +167,7 @@ function HistoryScreen() {
                           await window.electronAPI.filesOpenFile(generation!.cover_pdf_path!);
                         } catch (err) {
                           console.error('Failed to open file:', err);
-                          alert('Failed to open file');
+                          await modal.alert('Failed to open file');
                         }
                       }}
                       className="button-link"
@@ -181,7 +183,7 @@ function HistoryScreen() {
                           await window.electronAPI.filesOpenFile(generation!.qa_pdf_path!);
                         } catch (err) {
                           console.error('Failed to open file:', err);
-                          alert('Failed to open file');
+                          await modal.alert('Failed to open file');
                         }
                       }}
                       className="button-link"

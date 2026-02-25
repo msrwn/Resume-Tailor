@@ -1,7 +1,95 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Profile, ProfilePrompt, Job, CallAOutput, CallBOutput } from '@shared/types';
 import { GenerateProfilesSelector } from '../components/GenerateProfilesSelector';
 import { GenerateTaskTabs } from '../components/GenerateTaskTabs';
+
+/** Custom dropdown for prompt selection so we can control option height and styling. */
+function PromptSelect({
+  prompts,
+  value,
+  onChange,
+  disabled,
+  id,
+}: {
+  prompts: ProfilePrompt[];
+  value: string | undefined;
+  onChange: (promptId: string | undefined) => void;
+  disabled?: boolean;
+  id?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const displayLabel =
+    value === undefined || value === ''
+      ? '(Use profile rules + base resume only)'
+      : prompts.find((p) => p.prompt_id === value)?.name ?? '(Use profile rules + base resume only)';
+
+  useEffect(() => {
+    if (!open) return;
+    const handle = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [open]);
+
+  return (
+    <div className="generate-prompt-field" ref={containerRef}>
+      <label htmlFor={id}>Prompt (optional)</label>
+      <div className="generate-prompt-select-wrap">
+        <button
+          id={id}
+          type="button"
+          className="generate-prompt-select-trigger"
+          onClick={() => !disabled && setOpen((o) => !o)}
+          disabled={disabled}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-label="Prompt (optional)"
+        >
+          <span className="generate-prompt-select-trigger-text">{displayLabel}</span>
+          <span className="generate-prompt-select-chevron" aria-hidden>
+            ▼
+          </span>
+        </button>
+        {open && (
+          <ul
+            className="generate-prompt-select-list"
+            role="listbox"
+            aria-label="Prompt (optional)"
+          >
+            <li
+              role="option"
+              aria-selected={value === undefined || value === ''}
+              className="generate-prompt-select-option"
+              onClick={() => {
+                onChange(undefined);
+                setOpen(false);
+              }}
+            >
+              (Use profile rules + base resume only)
+            </li>
+            {prompts.map((p) => (
+              <li
+                key={p.prompt_id}
+                role="option"
+                aria-selected={value === p.prompt_id}
+                className="generate-prompt-select-option"
+                onClick={() => {
+                  onChange(p.prompt_id);
+                  setOpen(false);
+                }}
+              >
+                {p.name}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const MAX_TASKS = 10;
 
@@ -409,31 +497,20 @@ function GenerateScreen() {
         {activeTask && (
           <div className="generate-form">
             {/* Prompt selection (only when exactly one profile is selected and prompts exist) */}
-            {selectedProfileIds.length === 1 && (
-              (() => {
-                const pid = selectedProfileIds[0];
-                const prompts = promptsByProfile[pid] || [];
-                if (!prompts.length) return null;
-                return (
-                  <>
-                    <label>Prompt (optional)</label>
-                    <select
-                      className="generate-prompt-select"
-                      value={selectedPromptId ?? ''}
-                      onChange={(e) => setSelectedPromptId(e.target.value || undefined)}
-                      disabled={activeTask.loading}
-                    >
-                      <option value="">(Use profile rules + base resume only)</option>
-                      {prompts.map((p) => (
-                        <option key={p.prompt_id} value={p.prompt_id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </>
-                );
-              })()
-            )}
+            {selectedProfileIds.length === 1 && (() => {
+              const pid = selectedProfileIds[0];
+              const prompts = promptsByProfile[pid] || [];
+              if (!prompts.length) return null;
+              return (
+                <PromptSelect
+                  id="generate-prompt-select"
+                  prompts={prompts}
+                  value={selectedPromptId}
+                  onChange={setSelectedPromptId}
+                  disabled={activeTask.loading}
+                />
+              );
+            })()}
 
             <label>Job posting URL (optional)</label>
             <input
