@@ -2,6 +2,11 @@ import { getDatabase } from './database';
 import { randomUUID } from 'crypto';
 import type { Generation } from '../../shared/types';
 
+export type DailyGenerationCount = {
+  date: string;
+  count: number;
+};
+
 export type CreateGenerationParams = {
   job_id: string;
   profile_id: string;
@@ -172,6 +177,52 @@ export function getGenerationCounts(): { total: number; today: number } {
   `);
   const today = (todayStmt.get() as { count: number }).count;
   return { total, today };
+}
+
+/**
+ * Get counts of successful generations grouped by local date.
+ * Optional fromDate/toDate are inclusive and use 'YYYY-MM-DD' local dates.
+ */
+export function getDailyGenerationCounts(params?: {
+  fromDate?: string;
+  toDate?: string;
+}): DailyGenerationCount[] {
+  const db = getDatabase();
+
+  let sql = `
+    SELECT
+      date(created_at, 'localtime') as date,
+      COUNT(*) as count
+    FROM generations
+    WHERE status = 'success'
+  `;
+  const args: unknown[] = [];
+
+  if (params?.fromDate && params?.toDate) {
+    sql += `
+      AND date(created_at, 'localtime') BETWEEN ? AND ?
+    `;
+    args.push(params.fromDate, params.toDate);
+  } else if (params?.fromDate) {
+    sql += `
+      AND date(created_at, 'localtime') >= ?
+    `;
+    args.push(params.fromDate);
+  } else if (params?.toDate) {
+    sql += `
+      AND date(created_at, 'localtime') <= ?
+    `;
+    args.push(params.toDate);
+  }
+
+  sql += `
+    GROUP BY date(created_at, 'localtime')
+    ORDER BY date(created_at, 'localtime') ASC
+  `;
+
+  const stmt = db.prepare(sql);
+  const rows = stmt.all(...args) as DailyGenerationCount[];
+  return rows;
 }
 
 /**

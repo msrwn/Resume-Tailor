@@ -1079,6 +1079,165 @@ button:disabled {
   color: #2980b9;
 }
 
+/* Analytics screen */
+.analytics-screen {
+  max-width: 1200px;
+}
+
+.analytics-screen h1 {
+  font-size: 28px;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.analytics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.analytics-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+@media (min-width: 900px) {
+  .analytics-summary-cards {
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+  }
+}
+
+.analytics-card {
+  background: white;
+  border-radius: 8px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.analytics-card-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #888;
+  margin-bottom: 6px;
+}
+
+.analytics-card-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.analytics-range-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.analytics-range-toggle button {
+  padding: 6px 12px;
+  font-size: 13px;
+  background: #ecf0f1;
+  color: #555;
+}
+
+.analytics-range-toggle button.active {
+  background: #3498db;
+  color: #fff;
+}
+
+.analytics-chart-card,
+.analytics-table-card {
+  margin-top: 16px;
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.analytics-chart-card h2,
+.analytics-table-card h2 {
+  font-size: 18px;
+  margin: 0 0 16px 0;
+  color: #2c3e50;
+}
+
+.analytics-chart {
+  height: 260px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.analytics-chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+}
+
+.analytics-chart-bar-wrapper {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.analytics-chart-bar {
+  width: 100%;
+  max-width: 32px;
+  background: #bbdefb;
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.analytics-chart-bar-count {
+  position: absolute;
+  top: -18px;
+  font-size: 11px;
+  color: #555;
+}
+
+.analytics-chart-bar-label {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #777;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.analytics-table th,
+.analytics-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+
+.analytics-table th {
+  font-weight: 600;
+  color: #555;
+  background: #fafafa;
+}
+
+.analytics-table tbody tr:hover {
+  background: #fafafa;
+}
+
 /* Profiles screen */
 .profiles-screen {
   max-width: 1200px;

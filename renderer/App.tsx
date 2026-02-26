@@ -4,9 +4,10 @@ import HistoryScreen from './screens/HistoryScreen';
 import ProfilesScreen from './screens/ProfilesScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import ChangelogScreen from './screens/ChangelogScreen';
+import AnalyticsScreen from './screens/AnalyticsScreen';
 import TestHelper from './components/TestHelper';
 
-type Screen = 'generate' | 'history' | 'profiles' | 'settings' | 'changelog';
+type Screen = 'generate' | 'history' | 'analytics' | 'profiles' | 'settings' | 'changelog';
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('generate');
@@ -50,6 +51,14 @@ function App() {
           </li>
           <li>
             <button
+              className={currentScreen === 'analytics' ? 'active' : ''}
+              onClick={() => setCurrentScreen('analytics')}
+            >
+              Analytics
+            </button>
+          </li>
+          <li>
+            <button
               className={currentScreen === 'profiles' ? 'active' : ''}
               onClick={() => setCurrentScreen('profiles')}
             >
@@ -77,6 +86,7 @@ function App() {
       <main className="main-content">
         {currentScreen === 'generate' && <GenerateScreen />}
         {currentScreen === 'history' && <HistoryScreen />}
+        {currentScreen === 'analytics' && <AnalyticsScreen />}
         {currentScreen === 'profiles' && <ProfilesScreen />}
         {currentScreen === 'settings' && <SettingsScreen />}
         {currentScreen === 'changelog' && <ChangelogScreen />}

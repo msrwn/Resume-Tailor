@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor** (x.Y.0): New features (e.g. QA, multi-profile). Backward compatible.
 - **Major** (X.0.0): Breaking API or data changes.
 
+## [1.3.0] - 2026-02-26
+
+### Added
+- **Analytics screen**
+  - New **Analytics** nav item with a dedicated screen showing resume tailoring activity over time.
+  - **Summary cards**: Today, Last 7 days, Last 30 days, All time (based on successful generations).
+  - **Per-day bar chart**: Resumes tailored per local date with hover tooltips; zero-activity days show no bar.
+  - **Daily breakdown table**: Date and count table aligned with the chart.
+  - Backed by `analytics:getDailyCounts` IPC and `getDailyGenerationCounts` DAO helper; no schema changes required.
+
+### Documentation
+- Feature doc: `docs/features/ANALYTICS_SCREEN_2026-02-26.md`.
+
 ## [1.1.0] - 2026-02-25
 
 ### Added
@@ -144,6 +157,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **1.3.0** (2026-02-26): Analytics screen – new top-level screen with summary cards, per-day bar chart, and daily table of resumes tailored.
 - **1.2.0** (2026-02-25): History screen improvements – grid layout, filter by profile, job title black/bold, open job posting link, shortened button labels (Folder, Resume PDF, etc.).
 - **1.1.0** (2026-02-25): Generate screen & app layout improvements – custom Prompt dropdown, full-width screens (Generate, History, Settings, Changelog), full-width taller Generate button; removed stale renderer `.js` so build uses TSX.
 - **1.0.0** (2026-02-24): Base Resume + Multi-Prompt refactor (breaking: new DB fields, Call B now grounded in base resume and optional prompt per profile).

@@ -12,6 +12,7 @@ Feature documentation is organized by feature name in the `features/` subdirecto
 - **Core MVP** - See `PRD.md`, `TRD.md`, and `IMPLEMENTATION.md` for the main application features
 
 ### Completed Features
+- **[Analytics Screen](./features/ANALYTICS_SCREEN_2026-02-26.md)** ✅ - View resumes tailored per date with summary metrics and graph (v1.3.0)
 - **[History Screen Improvements](./features/HISTORY_SCREEN_IMPROVEMENTS_2026-02-25.md)** ✅ - Grid layout, profile filter, job title styling, open job posting link, shortened button labels (v1.2.0)
 - **[Generate Screen & App Layout Improvements](./features/GENERATE_UI_LAYOUT_2026-02-25.md)** ✅ - Custom Prompt dropdown, full-width layouts (Generate, History, Settings, Changelog), full-width taller Generate button (v1.1.0)
 - **[QA Feature](./features/QA_FEATURE_2026-02-16.md)** ✅ - Questions & Answers PDF generation (v0.2.0)
@@ -52,4 +53,4 @@ Each feature document should include:
 
 ---
 
-Last updated: 2026-02-25 (v1.2.0 – History screen improvements)
+Last updated: 2026-02-26 (v1.3.0 – Analytics screen)

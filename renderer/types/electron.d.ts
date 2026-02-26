@@ -1,5 +1,6 @@
 // Type definitions for Electron API exposed via preload script
 import type { AppConfig, Profile, ProfilePrompt, Job, Generation, CallAOutput, CallBOutput } from '@shared/types';
+import type { DailyGenerationCount } from '../../main/db/generationsDao';
 
 export interface ElectronAPI {
   // App info
@@ -48,6 +49,16 @@ export interface ElectronAPI {
     error?: string;
   }>;
   historyGetCounts: () => Promise<{ success: boolean; total?: number; today?: number; error?: string }>;
+  analyticsGetDailyCounts: (params?: {
+    range?: '7d' | '30d' | '90d' | 'all';
+    fromDate?: string;
+    toDate?: string;
+  }) => Promise<{
+    success: boolean;
+    error?: string;
+    summary?: { today: number; last7Days: number; last30Days: number; allTime: number };
+    data?: DailyGenerationCount[];
+  }>;
 
   // Generations
   generationGet: (generationId: string) => Promise<{ success: boolean; generation?: Generation | null; error?: string }>;

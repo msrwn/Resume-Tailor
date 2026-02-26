@@ -369,6 +369,80 @@ ipcMain.handle('history:getCounts', () => {
   }
 });
 
+// Analytics IPC handlers
+ipcMain.handle(
+  'analytics:getDailyCounts',
+  (
+    _event,
+    params?:
+      | {
+          range?: '7d' | '30d' | '90d' | 'all';
+          fromDate?: string;
+          toDate?: string;
+        }
+      | undefined
+  ) => {
+    try {
+      const now = new Date();
+
+      const toDate =
+        params?.toDate ||
+        new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          .toISOString()
+          .slice(0, 10);
+
+      let fromDate: string | undefined = params?.fromDate;
+
+      if (!fromDate && params?.range && params.range !== 'all') {
+        const days =
+          params.range === '7d' ? 7 : params.range === '30d' ? 30 : 90;
+        const start = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() - (days - 1)
+        );
+        fromDate = start.toISOString().slice(0, 10);
+      }
+
+      const daily = generationsDao.getDailyGenerationCounts({
+        fromDate,
+        toDate: params?.range === 'all' && !params?.toDate ? undefined : toDate,
+      });
+
+      const { total, today } = generationsDao.getGenerationCounts();
+
+      const sumLastNDays = (days: number) => {
+        const cutoff = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() - (days - 1)
+        )
+          .toISOString()
+          .slice(0, 10);
+        return daily
+          .filter((d) => d.date >= cutoff && d.date <= toDate)
+          .reduce((acc, d) => acc + d.count, 0);
+      };
+
+      const last7Days = sumLastNDays(7);
+      const last30Days = sumLastNDays(30);
+
+      return {
+        success: true,
+        summary: {
+          today,
+          last7Days,
+          last30Days,
+          allTime: total,
+        },
+        data: daily,
+      };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+);
+
 // Generations IPC handlers
 ipcMain.handle('generation:get', (_event, generationId: string) => {
   try {

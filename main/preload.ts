@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { AppConfig, Profile, ProfilePrompt, Job, Generation } from '@shared/types';
+import type { DailyGenerationCount } from './db/generationsDao';
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -75,6 +76,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }>,
   historyGetCounts: () =>
     ipcRenderer.invoke('history:getCounts') as Promise<{ success: boolean; total?: number; today?: number; error?: string }>,
+
+  // Analytics
+  analyticsGetDailyCounts: (params?: {
+    range?: '7d' | '30d' | '90d' | 'all';
+    fromDate?: string;
+    toDate?: string;
+  }) =>
+    ipcRenderer.invoke('analytics:getDailyCounts', params) as Promise<{
+      success: boolean;
+      error?: string;
+      summary?: { today: number; last7Days: number; last30Days: number; allTime: number };
+      data?: DailyGenerationCount[];
+    }>,
 
   // Generations
   generationGet: (generationId: string) =>
