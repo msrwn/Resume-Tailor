@@ -919,8 +919,24 @@ button:disabled {
 
 .history-search {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 24px;
+  align-items: center;
+}
+
+.history-profile-filter {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 160px;
+  background: white;
+}
+
+.history-profile-filter:focus {
+  outline: none;
+  border-color: #3498db;
 }
 
 .search-input {
@@ -955,6 +971,12 @@ button:disabled {
   display: inline-block;
 }
 
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
 .history-list {
   display: flex;
   flex-direction: column;
@@ -987,8 +1009,9 @@ button:disabled {
 }
 
 .history-item-role {
-  color: #7f8c8d;
+  color: #000;
   font-size: 14px;
+  font-weight: bold;
 }
 
 .history-item-profile {

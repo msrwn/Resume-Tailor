@@ -335,13 +335,16 @@ ipcMain.handle('jobs:updateExtraction', (_event, jobId: string, data: Parameters
 });
 
 // History IPC handlers
-ipcMain.handle('history:list', (_event, query?: Parameters<typeof jobsDao.searchJobs>[0]) => {
+type HistoryListQuery = Parameters<typeof jobsDao.searchJobs>[0] & { profile_id?: string };
+ipcMain.handle('history:list', (_event, query?: HistoryListQuery) => {
   try {
-    const jobs = jobsDao.searchJobs(query || {});
+    const { profile_id: profileId, ...searchQuery } = query || {};
+    const jobs = jobsDao.searchJobs(searchQuery);
     const byGeneration: Array<{ job: typeof jobs[0]; generation: import('../shared/types').Generation; profileName: string | null }> = [];
     for (const job of jobs) {
       const generations = generationsDao.getGenerationsForJob(job.job_id);
       for (const generation of generations) {
+        if (profileId != null && generation.profile_id !== profileId) continue;
         const profile = profilesDao.getProfile(generation.profile_id);
         byGeneration.push({
           job,
@@ -398,6 +401,15 @@ ipcMain.handle('files:openFolder', async (_event, folderPath: string) => {
 ipcMain.handle('files:openFile', async (_event, filePath: string) => {
   try {
     await shell.openPath(filePath);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle('files:openUrl', async (_event, url: string) => {
+  try {
+    await shell.openExternal(url);
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };

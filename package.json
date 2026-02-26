@@ -1,6 +1,6 @@
 {
   "name": "resume-tailor",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Local-first Electron desktop app for tailoring resumes to job descriptions",
   "main": "dist/main/index.js",
   "author": "",
@@ -77,7 +77,8 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
     },
     "mac": {
       "target": "dmg",

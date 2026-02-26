@@ -67,7 +67,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('jobs:create', data) as Promise<{ success: boolean; job?: Job; error?: string }>,
 
   // History
-  historyList: (query?: { company_name?: string; job_title?: string; keyword?: string; limit?: number; offset?: number }) =>
+  historyList: (query?: { company_name?: string; job_title?: string; keyword?: string; profile_id?: string; limit?: number; offset?: number }) =>
     ipcRenderer.invoke('history:list', query) as Promise<{
       success: boolean;
       results?: Array<{ job: Job; generation: Generation | null; profileName: string | null }>;
@@ -121,6 +121,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('files:openFolder', folderPath) as Promise<{ success: boolean; error?: string }>,
   filesOpenFile: (filePath: string) =>
     ipcRenderer.invoke('files:openFile', filePath) as Promise<{ success: boolean; error?: string }>,
+  filesOpenUrl: (url: string) =>
+    ipcRenderer.invoke('files:openUrl', url) as Promise<{ success: boolean; error?: string }>,
 });
 
 // Type definitions for TypeScript
@@ -180,6 +182,7 @@ export type ElectronAPI = {
   onGenerationProgress: (callback: (data: { step: string; message: string; percent: number }) => void) => () => void;
   filesOpenFolder: (folderPath: string) => Promise<{ success: boolean; error?: string }>;
   filesOpenFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
+  filesOpenUrl: (url: string) => Promise<{ success: boolean; error?: string }>;
 };
 
 declare global {

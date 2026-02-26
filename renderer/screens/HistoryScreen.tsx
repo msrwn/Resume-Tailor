@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Job, Generation } from '@shared/types';
+import type { Job, Generation, Profile } from '@shared/types';
 import { useModal } from '../context/ModalContext';
 
 type HistoryResult = {
@@ -13,12 +13,27 @@ function HistoryScreen() {
   const [results, setResults] = useState<HistoryResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [profileFilterId, setProfileFilterId] = useState<string>('');
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [counts, setCounts] = useState<{ total: number; today: number } | null>(null);
 
   useEffect(() => {
     loadHistory();
     loadCounts();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const listResponse = await window.electronAPI.profilesList();
+        if (listResponse.success && listResponse.profiles) {
+          setProfiles(listResponse.profiles);
+        }
+      } catch {
+        setProfiles([]);
+      }
+    })();
   }, []);
 
   const loadCounts = async () => {
@@ -32,7 +47,7 @@ function HistoryScreen() {
     }
   };
 
-  const loadHistory = async (query?: { keyword?: string; company_name?: string; job_title?: string }) => {
+  const loadHistory = async (query?: { keyword?: string; company_name?: string; job_title?: string; profile_id?: string }) => {
     setLoading(true);
     setError(null);
     try {
@@ -52,10 +67,17 @@ function HistoryScreen() {
   };
 
   const handleSearch = () => {
-    const query = searchQuery.trim()
+    const query: { keyword?: string; profile_id?: string } = searchQuery.trim()
       ? { keyword: searchQuery.trim() }
-      : undefined;
-    loadHistory(query);
+      : {};
+    if (profileFilterId) query.profile_id = profileFilterId;
+    loadHistory(Object.keys(query).length ? query : undefined);
+  };
+
+  const handleClear = () => {
+    setSearchQuery('');
+    setProfileFilterId('');
+    loadHistory();
   };
 
   const formatDate = (dateString: string) => {
@@ -83,10 +105,21 @@ function HistoryScreen() {
           onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
           className="search-input"
         />
+        <select
+          className="history-profile-filter"
+          value={profileFilterId}
+          onChange={(e) => { setProfileFilterId(e.target.value); }}
+          title="Filter by profile"
+        >
+          <option value="">All profiles</option>
+          {profiles.map((p) => (
+            <option key={p.profile_id} value={p.profile_id}>{p.name}</option>
+          ))}
+        </select>
         <button onClick={handleSearch} className="button-primary">
           Search
         </button>
-        <button onClick={() => { setSearchQuery(''); loadHistory(); }} className="button-secondary">
+        <button onClick={handleClear} className="button-secondary">
           Clear
         </button>
       </div>
@@ -103,7 +136,7 @@ function HistoryScreen() {
           <p>Your application history will appear here after generating resumes.</p>
         </div>
       ) : (
-        <div className="history-list">
+        <div className="history-grid">
           {results.map(({ job, generation, profileName }) => (
             <div key={generation?.generation_id ?? job.job_id} className="history-item">
               <div className="history-item-header">
@@ -131,6 +164,22 @@ function HistoryScreen() {
               )}
               {generation && generation.output_dir && (
                 <div className="history-item-actions">
+                  {job.source_url && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await window.electronAPI.filesOpenUrl(job.source_url!);
+                          if (!res.success) await modal.alert(res.error || 'Failed to open link');
+                        } catch (err) {
+                          console.error('Failed to open URL:', err);
+                          await modal.alert('Failed to open link');
+                        }
+                      }}
+                      className="button-link"
+                    >
+                      Job posting
+                    </button>
+                  )}
                   <button
                     onClick={async () => {
                       try {
@@ -141,8 +190,9 @@ function HistoryScreen() {
                       }
                     }}
                     className="button-link"
+                    style={job.source_url ? { marginLeft: '12px' } : undefined}
                   >
-                    Open Folder
+                    Folder
                   </button>
                   {generation.resume_pdf_path && (
                     <button
@@ -157,7 +207,7 @@ function HistoryScreen() {
                       className="button-link"
                       style={{ marginLeft: '12px' }}
                     >
-                      Open Resume PDF
+                      Resume PDF
                     </button>
                   )}
                   {generation.cover_pdf_path && (
@@ -173,7 +223,7 @@ function HistoryScreen() {
                       className="button-link"
                       style={{ marginLeft: '12px' }}
                     >
-                      Open Cover PDF
+                      Cover PDF
                     </button>
                   )}
                   {generation.qa_pdf_path && (
@@ -189,7 +239,7 @@ function HistoryScreen() {
                       className="button-link"
                       style={{ marginLeft: '12px' }}
                     >
-                      Open QA PDF
+                      QA PDF
                     </button>
                   )}
                 </div>

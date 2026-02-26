@@ -23,6 +23,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - Feature doc: `docs/features/GENERATE_UI_LAYOUT_2026-02-25.md` (includes naming: “resume tailoring” for the product, “generation” / “generate flow” for the pipeline).
 
+## [1.2.0] - 2026-02-25
+
+### Added
+- **History screen improvements**
+  - **Grid layout**: History cards displayed in a responsive grid so more cards fit on one screen (`minmax(340px, 1fr)`).
+  - **Filter by profile**: Search bar includes a profile dropdown ("All profiles" or a specific profile); results are filtered by selected profile when searching.
+  - **Open job posting**: When a job has a source URL, a "Job posting" link opens it in the default browser (new IPC `files:openUrl` / `shell.openExternal`).
+
+### Changed
+- **History screen**
+  - Job title (role) is now **black and bold** for better visibility.
+  - Action button labels shortened: "Open Folder" → "Folder", "Open Resume PDF" → "Resume PDF", "Open Cover PDF" → "Cover PDF", "Open QA PDF" → "QA PDF".
+
+### Documentation
+- Feature doc: `docs/features/HISTORY_SCREEN_IMPROVEMENTS_2026-02-25.md`.
+
 ---
 
 ## [1.0.0] - 2026-02-24
@@ -128,6 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **1.2.0** (2026-02-25): History screen improvements – grid layout, filter by profile, job title black/bold, open job posting link, shortened button labels (Folder, Resume PDF, etc.).
 - **1.1.0** (2026-02-25): Generate screen & app layout improvements – custom Prompt dropdown, full-width screens (Generate, History, Settings, Changelog), full-width taller Generate button; removed stale renderer `.js` so build uses TSX.
 - **1.0.0** (2026-02-24): Base Resume + Multi-Prompt refactor (breaking: new DB fields, Call B now grounded in base resume and optional prompt per profile).
 - **0.3.0** (2026-02-19): Multi-task tabs on Generate screen (Task 1–10, per-task state, tab badges, Ctrl+1…0)
