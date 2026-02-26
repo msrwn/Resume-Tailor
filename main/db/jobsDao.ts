@@ -94,6 +94,8 @@ export function searchJobs(query: {
   company_name?: string;
   job_title?: string;
   keyword?: string;
+  fromDate?: string;
+  toDate?: string;
   limit?: number;
   offset?: number;
 }): Job[] {
@@ -118,6 +120,16 @@ export function searchJobs(query: {
     sql += ' AND (jd_text LIKE ? OR company_name LIKE ? OR job_title LIKE ?)';
     const keyword = `%${query.keyword}%`;
     params.push(keyword, keyword, keyword);
+  }
+
+  if (query.fromDate) {
+    sql += ' AND created_at >= ?';
+    params.push(query.fromDate);
+  }
+
+  if (query.toDate) {
+    sql += ' AND created_at <= ?';
+    params.push(query.toDate);
   }
 
   sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';

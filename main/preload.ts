@@ -68,7 +68,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('jobs:create', data) as Promise<{ success: boolean; job?: Job; error?: string }>,
 
   // History
-  historyList: (query?: { company_name?: string; job_title?: string; keyword?: string; profile_id?: string; limit?: number; offset?: number }) =>
+  historyList: (query?: {
+    company_name?: string;
+    job_title?: string;
+    keyword?: string;
+    profile_id?: string;
+    fromDate?: string;
+    toDate?: string;
+    limit?: number;
+    offset?: number;
+  }) =>
     ipcRenderer.invoke('history:list', query) as Promise<{
       success: boolean;
       results?: Array<{ job: Job; generation: Generation | null; profileName: string | null }>;
@@ -165,7 +174,20 @@ export type ElectronAPI = {
   profilePromptsArchive: (promptId: string) => Promise<{ success: boolean; error?: string }>;
   jobsGet: (jobId: string) => Promise<{ success: boolean; job?: Job | null; error?: string }>;
   jobsCreate: (data: { jd_text: string; source_url?: string }) => Promise<{ success: boolean; job?: Job; error?: string }>;
-  historyList: (query?: { company_name?: string; job_title?: string; keyword?: string; limit?: number; offset?: number }) => Promise<{ success: boolean; results?: Array<{ job: Job; generation: Generation | null }>; error?: string }>;
+  historyList: (query?: {
+    company_name?: string;
+    job_title?: string;
+    keyword?: string;
+    profile_id?: string;
+    fromDate?: string;
+    toDate?: string;
+    limit?: number;
+    offset?: number;
+  }) => Promise<{
+    success: boolean;
+    results?: Array<{ job: Job; generation: Generation | null; profileName: string | null }>;
+    error?: string;
+  }>;
   generationGet: (generationId: string) => Promise<{ success: boolean; generation?: Generation | null; error?: string }>;
   generationGetLatestForJob: (jobId: string) => Promise<{ success: boolean; generation?: Generation | null; error?: string }>;
   generationRunCallA: (params: { jdText: string; sourceUrl?: string; profileId: string }) => Promise<{

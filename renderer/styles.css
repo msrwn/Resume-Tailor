@@ -478,6 +478,30 @@ button:disabled {
   border-top: none;
 }
 
+.generate-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.generate-toolbar-prompt {
+  flex: 1;
+  min-width: 240px;
+}
+
+.generate-toolbar-actions {
+  display: flex;
+  align-items: center;
+}
+
+.generate-toolbar-button {
+  min-height: 44px;
+  padding: 10px 20px;
+  white-space: nowrap;
+}
+
 .generate-screen h1 {
   font-size: 28px;
   margin-bottom: 8px;
@@ -939,6 +963,20 @@ button:disabled {
   border-color: #3498db;
 }
 
+.history-date-filter {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 160px;
+  background: white;
+}
+
+.history-date-filter:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
 .search-input {
   flex: 1;
   padding: 10px 12px;
@@ -1011,7 +1049,7 @@ button:disabled {
 .history-item-role {
   color: #000;
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 400;
 }
 
 .history-item-profile {

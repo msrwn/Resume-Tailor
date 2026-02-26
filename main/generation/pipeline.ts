@@ -326,6 +326,10 @@ export async function runGenerationCallAOnly(params: {
     return { success: false, error: 'JD text is required' };
   }
 
+  if (!sourceUrl || !sourceUrl.trim()) {
+    return { success: false, error: 'Job posting URL is required' };
+  }
+
   const profile = profilesDao.getProfile(profileId);
   if (!profile) {
     return { success: false, error: 'Profile not found' };
@@ -428,6 +432,10 @@ export async function runFullGeneration(params: {
 
   if (!params.jdText.trim()) {
     return { success: false, error: 'JD text is required' };
+  }
+
+  if (!params.sourceUrl || !params.sourceUrl.trim()) {
+    return { success: false, error: 'Job posting URL is required' };
   }
 
   // Multi-profile: one job, one Call A, then one generation per profile

@@ -43,7 +43,16 @@ export interface ElectronAPI {
   jobsCreate: (data: { jd_text: string; source_url?: string }) => Promise<{ success: boolean; job?: Job; error?: string }>;
 
   // History
-  historyList: (query?: { company_name?: string; job_title?: string; keyword?: string; profile_id?: string; limit?: number; offset?: number }) => Promise<{
+  historyList: (query?: {
+    company_name?: string;
+    job_title?: string;
+    keyword?: string;
+    profile_id?: string;
+    fromDate?: string;
+    toDate?: string;
+    limit?: number;
+    offset?: number;
+  }) => Promise<{
     success: boolean;
     results?: Array<{ job: Job; generation: Generation | null; profileName: string | null }>;
     error?: string;

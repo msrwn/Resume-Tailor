@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor** (x.Y.0): New features (e.g. QA, multi-profile). Backward compatible.
 - **Major** (X.0.0): Breaking API or data changes.
 
+## [1.4.0] - 2026-02-26
+
+### Added
+- **History screen**
+  - Date range filter in the search bar with options: All time, Today, Last 7 days, Last 30 days.
+  - Backend support for `fromDate`/`toDate` in `searchJobs`, applied to job `created_at`.
+
+### Changed
+- **Generate screen**
+  - Primary **Generate resume & cover letter** button moved into a top toolbar row alongside the Prompt dropdown for easier access.
+  - Profiles selector simplified by removing **Select all** / **Deselect all** buttons.
+  - Job posting URL field is now required in the UI; generations cannot be started without a URL.
+- **Generation pipeline**
+  - `runGenerationCallAOnly` and `runFullGeneration` now enforce non-empty `sourceUrl` and return `"Job posting URL is required"` when missing.
+- **History screen**
+  - Role text styling (`.history-item-role`) updated to black, normal-weight text (no longer bold) to reduce visual noise.
+
+### Documentation
+- Feature doc: `docs/features/GENERATE_HISTORY_USABILITY_2026-02-26.md`.
+- Feature index: `docs/FEATURES.md` updated to include Generate & History usability tweaks.
+
 ## [1.3.0] - 2026-02-26
 
 ### Added
@@ -157,6 +178,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **1.4.0** (2026-02-26): Generate & History usability tweaks – Generate toolbar and required job URL; History date filter and softer role styling.
 - **1.3.0** (2026-02-26): Analytics screen – new top-level screen with summary cards, per-day bar chart, and daily table of resumes tailored.
 - **1.2.0** (2026-02-25): History screen improvements – grid layout, filter by profile, job title black/bold, open job posting link, shortened button labels (Folder, Resume PDF, etc.).
 - **1.1.0** (2026-02-25): Generate screen & app layout improvements – custom Prompt dropdown, full-width screens (Generate, History, Settings, Changelog), full-width taller Generate button; removed stale renderer `.js` so build uses TSX.

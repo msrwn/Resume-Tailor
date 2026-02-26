@@ -271,6 +271,7 @@ function GenerateScreen() {
   const activeTask = taskState[activeTaskIndex] ?? taskState[1];
   const canGenerate =
     activeTask &&
+    activeTask.sourceUrl.trim().length > 0 &&
     activeTask.jdText.trim().length > 0 &&
     selectedProfileIds.length > 0 &&
     outputPathSet &&
@@ -300,15 +301,6 @@ function GenerateScreen() {
       return next;
     });
   };
-  const selectAllProfiles = () => {
-    setSelectedProfileIds(profiles.map((p) => p.profile_id));
-    setSelectedPromptId(undefined);
-  };
-  const deselectAllProfiles = () => {
-    setSelectedProfileIds([]);
-    setSelectedPromptId(undefined);
-  };
-
   const parseQuestions = (text: string): string[] => {
     if (!text.trim()) return [];
     return text
@@ -473,8 +465,6 @@ function GenerateScreen() {
         profiles={profiles}
         selectedProfileIds={selectedProfileIds}
         onToggleProfile={toggleProfile}
-        onSelectAll={selectAllProfiles}
-        onDeselectAll={deselectAllProfiles}
         outputPathSet={outputPathSet}
         apiKeySet={apiKeySet}
       />
@@ -496,23 +486,43 @@ function GenerateScreen() {
       >
         {activeTask && (
           <div className="generate-form">
-            {/* Prompt selection (only when exactly one profile is selected and prompts exist) */}
-            {selectedProfileIds.length === 1 && (() => {
-              const pid = selectedProfileIds[0];
-              const prompts = promptsByProfile[pid] || [];
-              if (!prompts.length) return null;
-              return (
-                <PromptSelect
-                  id="generate-prompt-select"
-                  prompts={prompts}
-                  value={selectedPromptId}
-                  onChange={setSelectedPromptId}
-                  disabled={activeTask.loading}
-                />
-              );
-            })()}
+            <div className="generate-toolbar">
+              {/* Prompt selection (only when exactly one profile is selected and prompts exist) */}
+              {selectedProfileIds.length === 1 && (() => {
+                const pid = selectedProfileIds[0];
+                const prompts = promptsByProfile[pid] || [];
+                if (!prompts.length) return null;
+                return (
+                  <div className="generate-toolbar-prompt">
+                    <PromptSelect
+                      id="generate-prompt-select"
+                      prompts={prompts}
+                      value={selectedPromptId}
+                      onChange={setSelectedPromptId}
+                      disabled={activeTask.loading}
+                    />
+                  </div>
+                );
+              })()}
+              <div className="generate-toolbar-actions">
+                <button
+                  type="button"
+                  className="button-primary generate-toolbar-button"
+                  onClick={handleGenerate}
+                  disabled={!canGenerate}
+                >
+                  {activeTask.loading
+                    ? 'Generating…'
+                    : selectedProfileIds.length > 1
+                      ? `Generate resume & cover letter (${selectedProfileIds.length} profiles)`
+                      : 'Generate resume & cover letter'}
+                </button>
+              </div>
+            </div>
 
-            <label>Job posting URL (optional)</label>
+            <label>
+              Job posting URL <span className="required">*</span>
+            </label>
             <input
               type="url"
               className="generate-url-input"
@@ -555,21 +565,6 @@ function GenerateScreen() {
                 )}
               </div>
             )}
-
-            <div className="generate-profile-button-group">
-              <button
-                type="button"
-                className="button-primary"
-                onClick={handleGenerate}
-                disabled={!canGenerate}
-              >
-                {activeTask.loading
-                  ? 'Generating…'
-                  : selectedProfileIds.length > 1
-                    ? `Generate resume & cover letter (${selectedProfileIds.length} profiles)`
-                    : 'Generate resume & cover letter'}
-              </button>
-            </div>
           </div>
         )}
 

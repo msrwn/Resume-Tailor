@@ -15,6 +15,7 @@ function HistoryScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [profileFilterId, setProfileFilterId] = useState<string>('');
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [dateRange, setDateRange] = useState<'all' | 'today' | '7d' | '30d'>('all');
   const [error, setError] = useState<string | null>(null);
   const [counts, setCounts] = useState<{ total: number; today: number } | null>(null);
 
@@ -47,7 +48,14 @@ function HistoryScreen() {
     }
   };
 
-  const loadHistory = async (query?: { keyword?: string; company_name?: string; job_title?: string; profile_id?: string }) => {
+  const loadHistory = async (query?: {
+    keyword?: string;
+    company_name?: string;
+    job_title?: string;
+    profile_id?: string;
+    fromDate?: string;
+    toDate?: string;
+  }) => {
     setLoading(true);
     setError(null);
     try {
@@ -67,16 +75,38 @@ function HistoryScreen() {
   };
 
   const handleSearch = () => {
-    const query: { keyword?: string; profile_id?: string } = searchQuery.trim()
+    const query: {
+      keyword?: string;
+      profile_id?: string;
+      fromDate?: string;
+      toDate?: string;
+    } = searchQuery.trim()
       ? { keyword: searchQuery.trim() }
       : {};
     if (profileFilterId) query.profile_id = profileFilterId;
+
+    if (dateRange !== 'all') {
+      const now = new Date();
+      let from: Date | null = null;
+      if (dateRange === 'today') {
+        from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      } else if (dateRange === '7d') {
+        from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (dateRange === '30d') {
+        from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+      if (from) {
+        query.fromDate = from.toISOString();
+      }
+    }
+
     loadHistory(Object.keys(query).length ? query : undefined);
   };
 
   const handleClear = () => {
     setSearchQuery('');
     setProfileFilterId('');
+    setDateRange('all');
     loadHistory();
   };
 
@@ -115,6 +145,17 @@ function HistoryScreen() {
           {profiles.map((p) => (
             <option key={p.profile_id} value={p.profile_id}>{p.name}</option>
           ))}
+        </select>
+        <select
+          className="history-date-filter"
+          value={dateRange}
+          onChange={(e) => setDateRange(e.target.value as 'all' | 'today' | '7d' | '30d')}
+          title="Filter by date"
+        >
+          <option value="all">All time</option>
+          <option value="today">Today</option>
+          <option value="7d">Last 7 days</option>
+          <option value="30d">Last 30 days</option>
         </select>
         <button onClick={handleSearch} className="button-primary">
           Search
