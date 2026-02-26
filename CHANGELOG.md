@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor** (x.Y.0): New features (e.g. QA, multi-profile). Backward compatible.
 - **Major** (X.0.0): Breaking API or data changes.
 
+## [1.4.1] - 2026-02-26
+
+### Added
+- **History screen**
+  - Each history card now shows the name of the profile prompt used for that generation when available, making it easier to see how a resume was tailored.
+
+### Changed
+- **Generate screen**
+  - Selected prompt is now persisted between navigations and app restarts and is validated against the currently selected profile’s prompts.
+- **Database / Pipeline**
+  - Added nullable `prompt_id` column to `generations` (Migration 4) and extended the single-profile generation pipeline to record which profile prompt was used for each run.
+
+### Documentation
+- Feature doc: `docs/features/PROMPT_TRACEABILITY_2026-02-26.md`.
+- Feature index: `docs/FEATURES.md` updated with Prompt Traceability entry.
+
 ## [1.4.0] - 2026-02-26
 
 ### Added
@@ -178,6 +194,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **1.4.1** (2026-02-26): Prompt traceability – persist selected prompt, track `prompt_id` on generations, and show prompt name on History cards.
 - **1.4.0** (2026-02-26): Generate & History usability tweaks – Generate toolbar and required job URL; History date filter and softer role styling.
 - **1.3.0** (2026-02-26): Analytics screen – new top-level screen with summary cards, per-day bar chart, and daily table of resumes tailored.
 - **1.2.0** (2026-02-25): History screen improvements – grid layout, filter by profile, job title black/bold, open job posting link, shortened button labels (Folder, Resume PDF, etc.).

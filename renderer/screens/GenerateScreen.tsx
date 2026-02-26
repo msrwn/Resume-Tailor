@@ -162,7 +162,13 @@ function GenerateScreen() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   // Future: use per-profile mapping; current MVP uses a single promptId applied to all selected profiles.
   const [promptsByProfile, setPromptsByProfile] = useState<Record<string, ProfilePrompt[]>>({});
-  const [selectedPromptId, setSelectedPromptId] = useState<string | undefined>(undefined);
+  const [selectedPromptId, setSelectedPromptId] = useState<string | undefined>(() => {
+    try {
+      return localStorage.getItem('resumeTailor_selectedPromptId') || undefined;
+    } catch {
+      return undefined;
+    }
+  });
   const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>(() => {
     try {
       const raw = localStorage.getItem('resumeTailor_selectedProfileIds');
@@ -193,6 +199,14 @@ function GenerateScreen() {
   useEffect(() => {
     localStorage.setItem('resumeTailor_selectedProfileIds', JSON.stringify(selectedProfileIds));
   }, [selectedProfileIds]);
+
+  useEffect(() => {
+    if (selectedPromptId) {
+      localStorage.setItem('resumeTailor_selectedPromptId', selectedPromptId);
+    } else {
+      localStorage.removeItem('resumeTailor_selectedPromptId');
+    }
+  }, [selectedPromptId]);
 
   const loadProfilesAndConfig = useCallback(async () => {
     try {
@@ -225,9 +239,11 @@ function GenerateScreen() {
             const resPrompts = await window.electronAPI.profilePromptsList(primaryProfileId);
             if (resPrompts.success && resPrompts.prompts) {
               setPromptsByProfile((prev) => ({ ...prev, [primaryProfileId]: resPrompts.prompts! }));
-              if (!selectedPromptId && resPrompts.prompts.length > 0) {
-                setSelectedPromptId(resPrompts.prompts[0].prompt_id);
-              }
+              setSelectedPromptId((prev) => {
+                const inList = resPrompts.prompts!.some((p) => p.prompt_id === prev);
+                if (inList) return prev ?? undefined;
+                return resPrompts.prompts!.length > 0 ? resPrompts.prompts![0].prompt_id : undefined;
+              });
             }
           } catch (e) {
             console.error('Failed to load prompts for default profile', e);
@@ -291,9 +307,11 @@ function GenerateScreen() {
           .then((res) => {
             if (res.success && res.prompts) {
               setPromptsByProfile((prevPrompts) => ({ ...prevPrompts, [pid]: res.prompts! }));
-              if (!selectedPromptId && res.prompts.length > 0) {
-                setSelectedPromptId(res.prompts[0].prompt_id);
-              }
+              setSelectedPromptId((prev) => {
+                const inList = res.prompts!.some((p) => p.prompt_id === prev);
+                if (inList) return prev ?? undefined;
+                return res.prompts!.length > 0 ? res.prompts![0].prompt_id : undefined;
+              });
             }
           })
           .catch((e) => console.error('Failed to load prompts for profile', pid, e));

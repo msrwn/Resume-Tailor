@@ -340,16 +340,18 @@ ipcMain.handle('history:list', (_event, query?: HistoryListQuery) => {
   try {
     const { profile_id: profileId, ...searchQuery } = query || {};
     const jobs = jobsDao.searchJobs(searchQuery);
-    const byGeneration: Array<{ job: typeof jobs[0]; generation: import('../shared/types').Generation; profileName: string | null }> = [];
+    const byGeneration: Array<{ job: typeof jobs[0]; generation: import('../shared/types').Generation; profileName: string | null; promptName: string | null }> = [];
     for (const job of jobs) {
       const generations = generationsDao.getGenerationsForJob(job.job_id);
       for (const generation of generations) {
         if (profileId != null && generation.profile_id !== profileId) continue;
         const profile = profilesDao.getProfile(generation.profile_id);
+        const prompt = generation.prompt_id ? profilePromptsDao.getPrompt(generation.prompt_id) : null;
         byGeneration.push({
           job,
           generation,
           profileName: profile?.name ?? null,
+          promptName: prompt?.name ?? null,
         });
       }
     }

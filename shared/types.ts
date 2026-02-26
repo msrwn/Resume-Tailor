@@ -60,6 +60,7 @@ export type Generation = {
   generation_id: string;
   job_id: string;
   profile_id: string;
+  prompt_id: string | null;
   status: 'success' | 'failed';
   created_at: string;
   rules_hash: string;

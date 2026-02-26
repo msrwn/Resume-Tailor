@@ -27,6 +27,10 @@ export function runMigrations(db: Database.Database): void {
   if (needsMigration3) {
     migration3_addBaseResumeAndPrompts(db);
   }
+
+  if (currentVersion < 4) {
+    migration4_addGenerationPromptId(db);
+  }
 }
 
 /**
@@ -160,4 +164,15 @@ function migration3_addBaseResumeAndPrompts(db: Database.Database): void {
   `);
 
   db.pragma('user_version = 3');
+}
+
+/**
+ * Migration 4: Add prompt_id to generations (which prompt was used for this run).
+ */
+function migration4_addGenerationPromptId(db: Database.Database): void {
+  const tableInfo = db.prepare('PRAGMA table_info(generations)').all() as Array<{ name: string }>;
+  if (!tableInfo.some((col) => col.name === 'prompt_id')) {
+    db.exec(`ALTER TABLE generations ADD COLUMN prompt_id TEXT NULL`);
+  }
+  db.pragma('user_version = 4');
 }

@@ -10,6 +10,7 @@ export type DailyGenerationCount = {
 export type CreateGenerationParams = {
   job_id: string;
   profile_id: string;
+  prompt_id?: string | null;
   rules_hash: string;
   template_hash: string;
   jd_model_used: string;
@@ -46,7 +47,7 @@ export function createGeneration(data: CreateGenerationParams): Generation {
 
   const stmt = db.prepare(`
     INSERT INTO generations (
-      generation_id, job_id, profile_id, status, created_at,
+      generation_id, job_id, profile_id, prompt_id, status, created_at,
       rules_hash, template_hash, jd_model_used, payload_model_used,
       fallback_used, fallback_reason,
       jd_input_tokens, jd_cached_input_tokens, jd_output_tokens,
@@ -54,13 +55,14 @@ export function createGeneration(data: CreateGenerationParams): Generation {
       total_estimated_cost_usd,
       base_folder, company_folder, role_folder, profile_folder, output_dir,
       error_code, error_message, raw_model_output_snippet
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
     generationId,
     data.job_id,
     data.profile_id,
+    data.prompt_id ?? null,
     status,
     now,
     data.rules_hash,

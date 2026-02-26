@@ -54,7 +54,7 @@ export interface ElectronAPI {
     offset?: number;
   }) => Promise<{
     success: boolean;
-    results?: Array<{ job: Job; generation: Generation | null; profileName: string | null }>;
+    results?: Array<{ job: Job; generation: Generation | null; profileName: string | null; promptName: string | null }>;
     error?: string;
   }>;
   historyGetCounts: () => Promise<{ success: boolean; total?: number; today?: number; error?: string }>;

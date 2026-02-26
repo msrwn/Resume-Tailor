@@ -6,6 +6,7 @@ type HistoryResult = {
   job: Job;
   generation: Generation | null;
   profileName: string | null;
+  promptName: string | null;
 };
 
 function HistoryScreen() {
@@ -178,7 +179,7 @@ function HistoryScreen() {
         </div>
       ) : (
         <div className="history-grid">
-          {results.map(({ job, generation, profileName }) => (
+          {results.map(({ job, generation, profileName, promptName }) => (
             <div key={generation?.generation_id ?? job.job_id} className="history-item">
               <div className="history-item-header">
                 <div className="history-item-title">
@@ -186,6 +187,9 @@ function HistoryScreen() {
                   <span className="history-item-role">{job.job_title || 'Unknown Role'}</span>
                   {profileName && (
                     <span className="history-item-profile">Profile: {profileName}</span>
+                  )}
+                  {promptName && (
+                    <span className="history-item-prompt">Prompt: {promptName}</span>
                   )}
                 </div>
                 <div className="history-item-meta">

@@ -1059,6 +1059,13 @@ button:disabled {
   font-size: 13px;
 }
 
+.history-item-prompt {
+  display: block;
+  margin-top: 4px;
+  color: #95a5a6;
+  font-size: 13px;
+}
+
 .history-item-meta {
   display: flex;
   flex-direction: column;

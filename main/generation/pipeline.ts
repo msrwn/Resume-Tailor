@@ -580,6 +580,7 @@ export async function runFullGeneration(params: {
     const gen = generationsDao.createGeneration({
       job_id: jobId,
       profile_id: profileId,
+      prompt_id: promptId ?? null,
       rules_hash: profile.rules_hash,
       template_hash: profile.template_hash,
       jd_model_used: callAResult.modelUsed,
@@ -636,6 +637,7 @@ export async function runFullGeneration(params: {
     const gen = generationsDao.createGeneration({
       job_id: jobId,
       profile_id: profileId,
+      prompt_id: promptId ?? null,
       rules_hash: profile.rules_hash,
       template_hash: profile.template_hash,
       jd_model_used: callAResult.modelUsed,
@@ -669,6 +671,7 @@ export async function runFullGeneration(params: {
   const gen = generationsDao.createGeneration({
     job_id: jobId,
     profile_id: profileId,
+    prompt_id: promptId ?? null,
     rules_hash: profile.rules_hash,
     template_hash: profile.template_hash,
     jd_model_used: callAResult.modelUsed,
