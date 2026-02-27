@@ -2,16 +2,16 @@ import type { Profile } from '@shared/types';
 
 type Props = {
   profiles: Profile[];
-  selectedProfileIds: string[];
-  onToggleProfile: (profileId: string) => void;
+  selectedProfileId: string | null;
+  onSelectProfile: (profileId: string) => void;
   outputPathSet: boolean;
   apiKeySet: boolean;
 };
 
 export function GenerateProfilesSelector({
   profiles,
-  selectedProfileIds,
-  onToggleProfile,
+  selectedProfileId,
+  onSelectProfile,
   outputPathSet,
   apiKeySet,
 }: Props) {
@@ -24,9 +24,10 @@ export function GenerateProfilesSelector({
             <li key={p.profile_id}>
               <label className="generate-profile-checkbox-label">
                 <input
-                  type="checkbox"
-                  checked={selectedProfileIds.includes(p.profile_id)}
-                  onChange={() => onToggleProfile(p.profile_id)}
+                  type="radio"
+                  name="generate-profile"
+                  checked={selectedProfileId === p.profile_id}
+                  onChange={() => onSelectProfile(p.profile_id)}
                 />
                 <span>
                   {p.name} {p.is_default ? '(default)' : ''}
@@ -35,10 +36,9 @@ export function GenerateProfilesSelector({
             </li>
           ))}
         </ul>
-        {selectedProfileIds.length > 0 && (
+        {selectedProfileId && (
           <p className="generate-profiles-hint">
-            {selectedProfileIds.length} profile
-            {selectedProfileIds.length !== 1 ? 's' : ''} selected
+            1 profile selected
           </p>
         )}
       </div>

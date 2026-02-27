@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor** (x.Y.0): New features (e.g. QA, multi-profile). Backward compatible.
 - **Major** (X.0.0): Breaking API or data changes.
 
+## [1.5.0] - 2026-02-27
+
+### Changed
+- **Generate screen**
+  - Profile selection is now strictly **single-profile** using radio buttons; only one profile can be active at a time when generating.
+  - The **Prompt (optional)** dropdown is loaded for the active profile and remains visible and populated when navigating away from and back to the Generate screen.
+- **Education rendering**
+  - Structured `resume.education[]` entries are flattened into a deduplicated `<ul>` list with `degree — institution | dates` formatting.
+  - Any stub `<ul>` directly under `<h2>Education</h2>` in the HTML template is automatically replaced with the generated Education HTML block so degrees are not duplicated.
+
+### Documentation
+- Feature doc: `docs/features/GENERATE_SINGLE_PROFILE_EDUCATION_2026-02-27.md`.
+- Feature index: `docs/FEATURES.md` updated with Generate Single-Profile & Education Rendering entry.
+
 ## [1.4.1] - 2026-02-26
 
 ### Added
@@ -194,6 +208,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **1.5.0** (2026-02-27): Generate single-profile & Education rendering – single active profile, stable Prompt dropdown, and improved Education section output.
 - **1.4.1** (2026-02-26): Prompt traceability – persist selected prompt, track `prompt_id` on generations, and show prompt name on History cards.
 - **1.4.0** (2026-02-26): Generate & History usability tweaks – Generate toolbar and required job URL; History date filter and softer role styling.
 - **1.3.0** (2026-02-26): Analytics screen – new top-level screen with summary cards, per-day bar chart, and daily table of resumes tailored.

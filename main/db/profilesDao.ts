@@ -62,7 +62,7 @@ export function createProfile(data: {
     INSERT INTO profiles (
       profile_id, name, rules_text, base_resume_text, template_html, rules_hash, template_hash,
       is_default, created_at, updated_at, archived_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
   `);
 
   stmt.run(

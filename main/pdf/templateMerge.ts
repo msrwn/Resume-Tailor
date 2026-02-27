@@ -191,25 +191,40 @@ export function buildMergePayloadFromStructuredResume(
   const rawHeadline = resume.headline ?? '';
   const headline = rawHeadline.replace(/^\.\.\.\.\s*/, '');
 
-  // Education: flatten structured entries into a simple text block for {education} placeholder.
+  // Education: flatten structured entries into a simple HTML list for {education} placeholder.
   const toEducationLine = (e: CallBEducationEntry): string => {
-    const parts: string[] = [];
-    if (e.degree) parts.push(escapeHtmlText(e.degree));
-    if (e.institution) parts.push(escapeHtmlText(e.institution));
-    const tail: string[] = [];
-    if (e.location) tail.push(escapeHtmlText(e.location));
-    if (e.dates) tail.push(escapeHtmlText(e.dates));
-    if (tail.length) parts.push(tail.join(' | '));
-    if (e.notes) parts.push(escapeHtmlText(e.notes));
-    return parts.join(' — ');
+    const degree = e.degree ? escapeHtmlText(e.degree) : '';
+    const institution = e.institution ? escapeHtmlText(e.institution) : '';
+    const tailParts: string[] = [];
+    if (e.dates) tailParts.push(escapeHtmlText(e.dates));
+    if (e.notes) tailParts.push(escapeHtmlText(e.notes));
+    const tail = tailParts.join(' | ');
+
+    if (degree && institution && tail) return `${degree} — ${institution} | ${tail}`;
+    if (degree && institution) return `${degree} — ${institution}`;
+    if (institution && tail) return `${institution} | ${tail}`;
+    if (degree && tail) return `${degree} | ${tail}`;
+    return degree || institution || tail;
   };
 
   let educationText = '';
   if (Array.isArray(resume.education)) {
-    const lines = (resume.education as CallBEducationEntry[])
+    const seen = new Set<string>();
+    const items = (resume.education as CallBEducationEntry[])
       .map((e) => (e ? toEducationLine(e) : ''))
-      .filter((line) => line.trim().length > 0);
-    educationText = lines.join('\n');
+      .filter((line) => {
+        const key = line.trim();
+        if (!key) return false;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    if (items.length) {
+      educationText =
+        '<ul>\n' + items.map((line) => `<li>${line}</li>`).join('\n') + '\n</ul>';
+    } else {
+      educationText = '';
+    }
   } else if (typeof resume.education === 'string') {
     // Backward-compatibility for any legacy payloads that still send a single string.
     educationText = resume.education;
@@ -332,6 +347,7 @@ export function mergeResumeTemplate(
   const experienceHtml = get('experience');
   const certificatesHtml = get('certificates');
   const freelancingHtml = get('freelancing');
+  const educationHtml = get('education');
 
   // 1) Section replacements: insert Skills, Experience, Certificates (always replace so placeholder content is gone)
   out = out.replace(
@@ -345,6 +361,10 @@ export function mergeResumeTemplate(
   out = out.replace(
     /(<h2[^>]*>\s*Freelancing\s*&\s*Client\s*Projects\s*<\/h2>\s*)[\s\S]*?(?=<h2[^>]*>\s*Education\s*<\/h2>)/i,
     (_, prefix) => (freelancingHtml ? prefix + freelancingHtml : prefix)
+  );
+  out = out.replace(
+    /(<h2[^>]*>\s*Education\s*<\/h2>\s*)<ul>[\s\S]*?<\/ul>/i,
+    (_, prefix) => (educationHtml ? prefix + educationHtml : prefix)
   );
   out = out.replace(
     /(<h2[^>]*>\s*Certificates\s*<\/h2>\s*)<ul>[\s\S]*?<\/ul>/i,

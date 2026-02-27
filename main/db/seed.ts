@@ -161,7 +161,7 @@ export function seedDefaultProfile(): void {
     ...
 
     <h2>Education</h2>
-    <p>{{education}}</p>
+    {{education}}
 
     <section>
       <h2>Certificates</h2>

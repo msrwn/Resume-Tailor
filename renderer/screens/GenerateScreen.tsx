@@ -160,8 +160,7 @@ function GenerateScreen() {
 
   // Root-level: profile selection and config
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  // Future: use per-profile mapping; current MVP uses a single promptId applied to all selected profiles.
-  const [promptsByProfile, setPromptsByProfile] = useState<Record<string, ProfilePrompt[]>>({});
+  const [prompts, setPrompts] = useState<ProfilePrompt[]>([]);
   const [selectedPromptId, setSelectedPromptId] = useState<string | undefined>(() => {
     try {
       return localStorage.getItem('resumeTailor_selectedPromptId') || undefined;
@@ -169,18 +168,19 @@ function GenerateScreen() {
       return undefined;
     }
   });
-  const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>(() => {
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(() => {
     try {
-      const raw = localStorage.getItem('resumeTailor_selectedProfileIds');
-      if (raw) {
-        const parsed = JSON.parse(raw) as string[];
-        return Array.isArray(parsed) ? parsed : [];
+      const single = localStorage.getItem('resumeTailor_selectedProfileId');
+      if (single) return single;
+      const legacy = localStorage.getItem('resumeTailor_selectedProfileIds');
+      if (legacy) {
+        const parsed = JSON.parse(legacy) as string[];
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
       }
     } catch {
-      const one = localStorage.getItem('resumeTailor_selectedProfileId');
-      return one ? [one] : [];
+      return null;
     }
-    return [];
+    return null;
   });
   const [outputPathSet, setOutputPathSet] = useState(false);
   const [apiKeySet, setApiKeySet] = useState(false);
@@ -197,8 +197,12 @@ function GenerateScreen() {
   }, [taskState]);
 
   useEffect(() => {
-    localStorage.setItem('resumeTailor_selectedProfileIds', JSON.stringify(selectedProfileIds));
-  }, [selectedProfileIds]);
+    if (selectedProfileId) {
+      localStorage.setItem('resumeTailor_selectedProfileId', selectedProfileId);
+    } else {
+      localStorage.removeItem('resumeTailor_selectedProfileId');
+    }
+  }, [selectedProfileId]);
 
   useEffect(() => {
     if (selectedPromptId) {
@@ -219,35 +223,37 @@ function GenerateScreen() {
       if (profRes.success && profRes.profiles) {
         const availableProfiles = profRes.profiles.filter((p) => !p.archived_at);
         setProfiles(availableProfiles);
-        setSelectedProfileIds((prev) => {
-          const valid = prev.filter((id) => availableProfiles.some((p) => p.profile_id === id));
-          if (valid.length > 0) return valid;
-          if (defaultRes.success && defaultRes.profile) {
-            return [defaultRes.profile.profile_id];
-          }
-          if (availableProfiles.length > 0) {
-            return [availableProfiles[0].profile_id];
-          }
-          return [];
-        });
-        // Load prompts for the first selected profile (for prompt dropdown)
-        const primaryProfileId =
-          (defaultRes.success && defaultRes.profile && defaultRes.profile.profile_id) ||
-          (availableProfiles[0] && availableProfiles[0].profile_id);
-        if (primaryProfileId) {
+
+        let effectiveProfileId: string | null = null;
+        if (selectedProfileId && availableProfiles.some((p) => p.profile_id === selectedProfileId)) {
+          effectiveProfileId = selectedProfileId;
+        } else if (defaultRes.success && defaultRes.profile) {
+          effectiveProfileId = defaultRes.profile.profile_id;
+        } else if (availableProfiles.length > 0) {
+          effectiveProfileId = availableProfiles[0].profile_id;
+        }
+        setSelectedProfileId(effectiveProfileId);
+
+        if (effectiveProfileId) {
           try {
-            const resPrompts = await window.electronAPI.profilePromptsList(primaryProfileId);
+            const resPrompts = await window.electronAPI.profilePromptsList(effectiveProfileId);
             if (resPrompts.success && resPrompts.prompts) {
-              setPromptsByProfile((prev) => ({ ...prev, [primaryProfileId]: resPrompts.prompts! }));
+              setPrompts(resPrompts.prompts!);
               setSelectedPromptId((prev) => {
                 const inList = resPrompts.prompts!.some((p) => p.prompt_id === prev);
                 if (inList) return prev ?? undefined;
                 return resPrompts.prompts!.length > 0 ? resPrompts.prompts![0].prompt_id : undefined;
               });
+            } else {
+              setPrompts([]);
+              setSelectedPromptId(undefined);
             }
           } catch (e) {
-            console.error('Failed to load prompts for default profile', e);
+            console.error('Failed to load prompts for profile', effectiveProfileId, e);
           }
+        } else {
+          setPrompts([]);
+          setSelectedPromptId(undefined);
         }
       }
       setOutputPathSet(Boolean(configRes?.outputRootPath?.trim()));
@@ -289,35 +295,29 @@ function GenerateScreen() {
     activeTask &&
     activeTask.sourceUrl.trim().length > 0 &&
     activeTask.jdText.trim().length > 0 &&
-    selectedProfileIds.length > 0 &&
+    !!selectedProfileId &&
     outputPathSet &&
     apiKeySet &&
     !activeTask.loading;
 
-  const toggleProfile = (profileId: string) => {
-    setSelectedProfileIds((prev) => {
-      const next = prev.includes(profileId)
-        ? prev.filter((id) => id !== profileId)
-        : [...prev, profileId];
-      // When a single profile is selected, load its prompts for the dropdown
-      if (next.length === 1) {
-        const pid = next[0];
-        window.electronAPI
-          .profilePromptsList(pid)
-          .then((res) => {
-            if (res.success && res.prompts) {
-              setPromptsByProfile((prevPrompts) => ({ ...prevPrompts, [pid]: res.prompts! }));
-              setSelectedPromptId((prev) => {
-                const inList = res.prompts!.some((p) => p.prompt_id === prev);
-                if (inList) return prev ?? undefined;
-                return res.prompts!.length > 0 ? res.prompts![0].prompt_id : undefined;
-              });
-            }
-          })
-          .catch((e) => console.error('Failed to load prompts for profile', pid, e));
-      }
-      return next;
-    });
+  const selectProfile = (profileId: string) => {
+    setSelectedProfileId(profileId);
+    window.electronAPI
+      .profilePromptsList(profileId)
+      .then((res) => {
+        if (res.success && res.prompts) {
+          setPrompts(res.prompts!);
+          setSelectedPromptId((prev) => {
+            const inList = res.prompts!.some((p) => p.prompt_id === prev);
+            if (inList) return prev ?? undefined;
+            return res.prompts!.length > 0 ? res.prompts![0].prompt_id : undefined;
+          });
+        } else {
+          setPrompts([]);
+          setSelectedPromptId(undefined);
+        }
+      })
+      .catch((e) => console.error('Failed to load prompts for profile', profileId, e));
   };
   const parseQuestions = (text: string): string[] => {
     if (!text.trim()) return [];
@@ -349,8 +349,7 @@ function GenerateScreen() {
       const res = await window.electronAPI.generationRunFull({
         jdText: activeTask.jdText.trim(),
         sourceUrl: activeTask.sourceUrl.trim() || undefined,
-        profileIds: selectedProfileIds,
-        // MVP: one promptId applied to all selected profiles; if none, backend falls back to rules/base resume only.
+        profileId: selectedProfileId || undefined,
         promptId: selectedPromptId,
         questions: parsedQuestions.length > 0 ? parsedQuestions : undefined,
         taskId: taskIndex,
@@ -362,20 +361,7 @@ function GenerateScreen() {
       }));
 
       if (res.success && res.jobId) {
-        if (res.results && res.results.length > 1) {
-          const succeeded = res.results.filter((r) => !r.error).length;
-          updateTaskState(taskIndex, {
-            result: {
-              kind: 'multi',
-              jobId: res.jobId!,
-              total: res.results.length,
-              succeeded,
-            },
-            jdText: '',
-            sourceUrl: '',
-            questions: '',
-          });
-        } else if (res.results && res.results.length === 1) {
+        if (res.results && res.results.length > 0) {
           const r = res.results[0];
           if (r.error) {
             updateTaskState(taskIndex, { result: null, error: r.error });
@@ -481,8 +467,8 @@ function GenerateScreen() {
       {/* Root-level profile selection */}
       <GenerateProfilesSelector
         profiles={profiles}
-        selectedProfileIds={selectedProfileIds}
-        onToggleProfile={toggleProfile}
+        selectedProfileId={selectedProfileId}
+        onSelectProfile={selectProfile}
         outputPathSet={outputPathSet}
         apiKeySet={apiKeySet}
       />
@@ -505,23 +491,18 @@ function GenerateScreen() {
         {activeTask && (
           <div className="generate-form">
             <div className="generate-toolbar">
-              {/* Prompt selection (only when exactly one profile is selected and prompts exist) */}
-              {selectedProfileIds.length === 1 && (() => {
-                const pid = selectedProfileIds[0];
-                const prompts = promptsByProfile[pid] || [];
-                if (!prompts.length) return null;
-                return (
-                  <div className="generate-toolbar-prompt">
-                    <PromptSelect
-                      id="generate-prompt-select"
-                      prompts={prompts}
-                      value={selectedPromptId}
-                      onChange={setSelectedPromptId}
-                      disabled={activeTask.loading}
-                    />
-                  </div>
-                );
-              })()}
+              {/* Prompt selection (only when a profile is selected and prompts exist) */}
+              {selectedProfileId && prompts.length > 0 && (
+                <div className="generate-toolbar-prompt">
+                  <PromptSelect
+                    id="generate-prompt-select"
+                    prompts={prompts}
+                    value={selectedPromptId}
+                    onChange={setSelectedPromptId}
+                    disabled={activeTask.loading}
+                  />
+                </div>
+              )}
               <div className="generate-toolbar-actions">
                 <button
                   type="button"
@@ -529,11 +510,7 @@ function GenerateScreen() {
                   onClick={handleGenerate}
                   disabled={!canGenerate}
                 >
-                  {activeTask.loading
-                    ? 'Generating…'
-                    : selectedProfileIds.length > 1
-                      ? `Generate resume & cover letter (${selectedProfileIds.length} profiles)`
-                      : 'Generate resume & cover letter'}
+                  {activeTask.loading ? 'Generating…' : 'Generate resume & cover letter'}
                 </button>
               </div>
             </div>
