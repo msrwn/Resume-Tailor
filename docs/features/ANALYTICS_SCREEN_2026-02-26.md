@@ -3,7 +3,7 @@
 **Status**: ✅ Completed  
 **Created**: 2026-02-26  
 **Completed**: 2026-02-26  
-**Version**: 1.3.0  
+**Version**: 1.3.0 (initial), 1.5.1 (layout bugfix: scrollable chart for long ranges)  
 **Feature**: Analytics screen showing how many resumes were tailored per date, with summary metrics and a graph.
 
  ---
@@ -209,14 +209,15 @@
 
  ---
 
- ## 7. UI Changes
+## 7. UI Changes
 
- - New top-level Analytics screen:
-   - Added to app navigation.
-   - Uses existing typography, spacing, and card/table visual language for consistency.
- - No changes to existing screens’ core flows (Generate, History, Profiles, Settings).
+- New top-level Analytics screen:
+  - Added to app navigation.
+  - Uses existing typography, spacing, and card/table visual language for consistency.
+- No changes to existing screens’ core flows (Generate, History, Profiles, Settings).
+- 1.5.1: Made the bar chart area horizontally scrollable so large date ranges do not overflow the container.
 
- ---
+---
 
 ## 8. Testing Plan
 

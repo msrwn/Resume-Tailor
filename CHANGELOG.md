@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor** (x.Y.0): New features (e.g. QA, multi-profile). Backward compatible.
 - **Major** (X.0.0): Breaking API or data changes.
 
+## [1.5.1] - 2026-03-02
+
+### Fixed
+- **Analytics screen**
+  - Prevented the daily bar chart from overflowing its container by making the chart area horizontally scrollable when there are many days of data.
+
+### Documentation
+- Feature doc: `docs/features/ANALYTICS_SCREEN_2026-02-26.md` updated with 1.5.1 layout bugfix notes.
+- Feature index: `docs/FEATURES.md` updated with 1.5.1 Analytics entry and summary.
+
 ## [1.5.0] - 2026-02-27
 
 ### Changed
@@ -208,6 +218,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **1.5.1** (2026-03-02): Analytics chart overflow fix – bar chart is now horizontally scrollable for long date ranges so it stays within the Analytics card.
 - **1.5.0** (2026-02-27): Generate single-profile & Education rendering – single active profile, stable Prompt dropdown, and improved Education section output.
 - **1.4.1** (2026-02-26): Prompt traceability – persist selected prompt, track `prompt_id` on generations, and show prompt name on History cards.
 - **1.4.0** (2026-02-26): Generate & History usability tweaks – Generate toolbar and required job URL; History date filter and softer role styling.

@@ -15,7 +15,7 @@ Feature documentation is organized by feature name in the `features/` subdirecto
 - **[Generate Single-Profile & Education Rendering](./features/GENERATE_SINGLE_PROFILE_EDUCATION_2026-02-27.md)** ✅ - Single-profile Generate behaviour, stable Prompt dropdown, and improved Education section rendering (v1.5.0)
 - **[Prompt Traceability & History Metadata](./features/PROMPT_TRACEABILITY_2026-02-26.md)** ✅ - Persist selected prompt, track `prompt_id` per generation, and show prompt name on History cards (v1.4.1)
 - **[Generate & History Usability Tweaks](./features/GENERATE_HISTORY_USABILITY_2026-02-26.md)** ✅ - Generate toolbar + required job URL, History date filter and role styling adjustment (v1.4.0)
-- **[Analytics Screen](./features/ANALYTICS_SCREEN_2026-02-26.md)** ✅ - View resumes tailored per date with summary metrics and graph (v1.3.0)
+- **[Analytics Screen](./features/ANALYTICS_SCREEN_2026-02-26.md)** ✅ - View resumes tailored per date with summary metrics and graph; 1.5.1 patch makes the bar chart horizontally scrollable for long ranges (v1.3.0, 1.5.1)
 - **[History Screen Improvements](./features/HISTORY_SCREEN_IMPROVEMENTS_2026-02-25.md)** ✅ - Grid layout, profile filter, job title styling, open job posting link, shortened button labels (v1.2.0)
 - **[Generate Screen & App Layout Improvements](./features/GENERATE_UI_LAYOUT_2026-02-25.md)** ✅ - Custom Prompt dropdown, full-width layouts (Generate, History, Settings, Changelog), full-width taller Generate button (v1.1.0)
 - **[QA Feature](./features/QA_FEATURE_2026-02-16.md)** ✅ - Questions & Answers PDF generation (v0.2.0)
@@ -56,4 +56,4 @@ Each feature document should include:
 
 ---
 
-Last updated: 2026-02-27 (v1.5.0 – Generate single-profile & Education rendering)
+Last updated: 2026-03-02 (v1.5.1 – Analytics chart overflow fix)
