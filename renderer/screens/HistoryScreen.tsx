@@ -19,6 +19,8 @@ function HistoryScreen() {
   const [dateRange, setDateRange] = useState<'all' | 'today' | '7d' | '30d'>('all');
   const [error, setError] = useState<string | null>(null);
   const [counts, setCounts] = useState<{ total: number; today: number } | null>(null);
+  const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
+  const [notesDraft, setNotesDraft] = useState('');
 
   useEffect(() => {
     loadHistory();
@@ -116,6 +118,38 @@ function HistoryScreen() {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const startEditingNotes = (generationId: string, currentNotes: string | null) => {
+    setEditingNotesId(generationId);
+    setNotesDraft(currentNotes ?? '');
+  };
+
+  const cancelEditingNotes = () => {
+    setEditingNotesId(null);
+    setNotesDraft('');
+  };
+
+  const saveNotes = async (generationId: string) => {
+    try {
+      const res = await window.electronAPI.generationUpdateNotes(generationId, notesDraft.trim() || null);
+      if (res.success && res.generation != null) {
+        setResults((prev) =>
+          prev.map((r) =>
+            r.generation?.generation_id === generationId
+              ? { ...r, generation: res.generation ?? r.generation }
+              : r
+          )
+        );
+        setEditingNotesId(null);
+        setNotesDraft('');
+      } else {
+        await modal.alert(res.error || 'Failed to save notes');
+      }
+    } catch (err) {
+      console.error('Failed to save notes:', err);
+      await modal.alert('Failed to save notes');
+    }
+  };
+
   return (
     <div className="history-screen">
       <h1>History</h1>
@@ -205,6 +239,55 @@ function HistoryScreen() {
                 <div className="history-item-contact">
                   <strong>Contact:</strong> {job.contact_email}
                   {job.contact_phone && ` | ${job.contact_phone}`}
+                </div>
+              )}
+              {generation && (
+                <div className="history-item-notes">
+                  {editingNotesId === generation.generation_id ? (
+                    <>
+                      <label className="history-item-notes-label">Other Info</label>
+                      <textarea
+                        className="history-item-notes-input"
+                        value={notesDraft}
+                        onChange={(e) => setNotesDraft(e.target.value)}
+                        placeholder="Add notes about this application..."
+                        rows={3}
+                        autoFocus
+                      />
+                      <div className="history-item-notes-actions">
+                        <button
+                          type="button"
+                          onClick={() => saveNotes(generation.generation_id)}
+                          className="button-primary"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEditingNotes}
+                          className="button-secondary"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {(generation.notes ?? '').trim() ? (
+                        <div className="history-item-notes-text">
+                          <span className="history-item-notes-label">Other Info:</span>{' '}
+                          {generation.notes}
+                        </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => startEditingNotes(generation.generation_id, generation.notes)}
+                        className="button-link history-item-notes-toggle"
+                      >
+                        {(generation.notes ?? '').trim() ? 'Edit' : 'Add other info'}
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
               {generation && generation.output_dir && (

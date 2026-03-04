@@ -102,6 +102,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Generations
   generationGet: (generationId: string) =>
     ipcRenderer.invoke('generation:get', generationId) as Promise<{ success: boolean; generation?: Generation | null; error?: string }>,
+  generationUpdateNotes: (generationId: string, notes: string | null) =>
+    ipcRenderer.invoke('generation:updateNotes', generationId, notes) as Promise<{ success: boolean; generation?: Generation | null; error?: string }>,
   generationGetLatestForJob: (jobId: string) =>
     ipcRenderer.invoke('generation:getLatestForJob', jobId) as Promise<{ success: boolean; generation?: Generation | null; error?: string }>,
   generationRunCallA: (params: { jdText: string; sourceUrl?: string; profileId: string }) =>
@@ -189,6 +191,7 @@ export type ElectronAPI = {
     error?: string;
   }>;
   generationGet: (generationId: string) => Promise<{ success: boolean; generation?: Generation | null; error?: string }>;
+  generationUpdateNotes: (generationId: string, notes: string | null) => Promise<{ success: boolean; generation?: Generation | null; error?: string }>;
   generationGetLatestForJob: (jobId: string) => Promise<{ success: boolean; generation?: Generation | null; error?: string }>;
   generationRunCallA: (params: { jdText: string; sourceUrl?: string; profileId: string }) => Promise<{
     success: boolean;

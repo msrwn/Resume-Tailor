@@ -455,6 +455,15 @@ ipcMain.handle('generation:get', (_event, generationId: string) => {
   }
 });
 
+ipcMain.handle('generation:updateNotes', (_event, generationId: string, notes: string | null) => {
+  try {
+    const generation = generationsDao.updateGenerationNotes(generationId, notes);
+    return { success: true, generation };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
 ipcMain.handle('generation:getLatestForJob', (_event, jobId: string) => {
   try {
     const generation = generationsDao.getLatestGenerationForJob(jobId);

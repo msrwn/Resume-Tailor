@@ -12,6 +12,7 @@ Feature documentation is organized by feature name in the `features/` subdirecto
 - **Core MVP** - See `PRD.md`, `TRD.md`, and `IMPLEMENTATION.md` for the main application features
 
 ### Completed Features
+- **[History Card Other Info](./features/HISTORY_CARD_OTHER_INFO_2026-03-03.md)** ✅ - Manual notes per history card (Other Info): add, edit, persist (v1.5.2)
 - **[Generate Single-Profile & Education Rendering](./features/GENERATE_SINGLE_PROFILE_EDUCATION_2026-02-27.md)** ✅ - Single-profile Generate behaviour, stable Prompt dropdown, and improved Education section rendering (v1.5.0)
 - **[Prompt Traceability & History Metadata](./features/PROMPT_TRACEABILITY_2026-02-26.md)** ✅ - Persist selected prompt, track `prompt_id` per generation, and show prompt name on History cards (v1.4.1)
 - **[Generate & History Usability Tweaks](./features/GENERATE_HISTORY_USABILITY_2026-02-26.md)** ✅ - Generate toolbar + required job URL, History date filter and role styling adjustment (v1.4.0)
@@ -56,4 +57,4 @@ Each feature document should include:
 
 ---
 
-Last updated: 2026-03-02 (v1.5.1 – Analytics chart overflow fix)
+Last updated: 2026-03-03 (v1.5.2 – History card Other Info)

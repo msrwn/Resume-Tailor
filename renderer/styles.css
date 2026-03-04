@@ -1104,6 +1104,57 @@ button:disabled {
   color: #555;
 }
 
+.history-item-notes {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e0e0e0;
+  font-size: 14px;
+  color: #555;
+}
+
+.history-item-notes-label {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.history-item-notes-text {
+  margin-bottom: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.history-item-notes-toggle {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 13px;
+}
+
+.history-item-notes-input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+  box-sizing: border-box;
+}
+
+.history-item-notes-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.history-item-notes-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .history-item-actions {
   margin-top: 12px;
   padding-top: 12px;

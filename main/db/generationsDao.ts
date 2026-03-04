@@ -163,6 +163,16 @@ export function updateGenerationPaths(
 }
 
 /**
+ * Update user notes (additional information) for a generation.
+ */
+export function updateGenerationNotes(generationId: string, notes: string | null): Generation | null {
+  const db = getDatabase();
+  const stmt = db.prepare(`UPDATE generations SET notes = ? WHERE generation_id = ?`);
+  stmt.run(notes ?? null, generationId);
+  return getGeneration(generationId);
+}
+
+/**
  * Get counts of successful generations (resumes generated).
  * Returns total count and count for today (local date).
  */

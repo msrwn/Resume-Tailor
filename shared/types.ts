@@ -88,6 +88,8 @@ export type Generation = {
   error_code: string | null;
   error_message: string | null;
   raw_model_output_snippet: string | null;
+  /** User-added notes / additional information for this history card. */
+  notes: string | null;
 };
 
 export type GenerationProgress = {

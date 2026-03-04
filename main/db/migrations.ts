@@ -31,6 +31,17 @@ export function runMigrations(db: Database.Database): void {
   if (currentVersion < 4) {
     migration4_addGenerationPromptId(db);
   }
+
+  if (currentVersion < 5) {
+    migration5_addGenerationNotes(db);
+  }
+
+  // Safety: ensure notes column exists (handles stale builds or DBs where migration 5 didn't run)
+  const tableInfo = db.prepare('PRAGMA table_info(generations)').all() as Array<{ name: string }>;
+  if (!tableInfo.some((col) => col.name === 'notes')) {
+    db.exec(`ALTER TABLE generations ADD COLUMN notes TEXT NULL`);
+    db.pragma('user_version = 5');
+  }
 }
 
 /**
@@ -175,4 +186,15 @@ function migration4_addGenerationPromptId(db: Database.Database): void {
     db.exec(`ALTER TABLE generations ADD COLUMN prompt_id TEXT NULL`);
   }
   db.pragma('user_version = 4');
+}
+
+/**
+ * Migration 5: Add notes (additional information) to generations for history cards.
+ */
+function migration5_addGenerationNotes(db: Database.Database): void {
+  const tableInfo = db.prepare('PRAGMA table_info(generations)').all() as Array<{ name: string }>;
+  if (!tableInfo.some((col) => col.name === 'notes')) {
+    db.exec(`ALTER TABLE generations ADD COLUMN notes TEXT NULL`);
+  }
+  db.pragma('user_version = 5');
 }
