@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor** (x.Y.0): New features (e.g. QA, multi-profile). Backward compatible.
 - **Major** (X.0.0): Breaking API or data changes.
 
+## [1.7.0] - 2026-03-05
+
+### Added
+- **History screen**
+  - Retry action on each history card that reuses the original JD, job URL, profile (base resume + rules), and prompt to regenerate outputs, with inline progress and clear success/fail feedback.
+  - Questions & answers flow from history cards: per-card questions textarea and **Generate** button to produce or refresh a QA PDF, using an efficient QA-only path that does not regenerate the resume or cover letter.
+- **Generation pipeline / IPC**
+  - New QA-only helper `runQaOnly` and pipeline entry `runQaForExistingGeneration`, plus IPC handler `generation:runQa` and `generationRunQa` preload binding, so existing generations can get new answers without a full Call B run.
+
+### Changed
+- **History screen**
+  - History card actions now use icon buttons for job posting, folder, PDFs, retry, and QA, with larger tap targets and a QA/answers icon pair (`❓` to answer, `💡` to open answers).
+  - Questions editor on history cards has improved spacing and full-width textarea, plus a compact progress bar and simplified **Generate** button label.
+- **Generate screen**
+  - Profiles row alignment refined so the `Profiles` label and radio list are vertically centered with tighter spacing to the first profile.
+
+### Documentation
+- Feature doc: `docs/features/HISTORY_RETRY_AND_QA_FROM_HISTORY_2026-03-05.md`.
+- Feature index: `docs/FEATURES.md` updated with History Retry & QA from History entry.
+
 ## [1.6.0] - 2026-03-05
 
 ### Added
@@ -256,6 +276,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **1.7.0** (2026-03-05): History retry & QA from History – retry/regenerate from history cards and QA-only answers using existing tailored resume + JD; icon actions and Generate/Profiles alignment polish.
 - **1.5.2** (2026-03-03): History card Other Info – manual notes per application (add/edit, persisted per generation).
 - **1.5.1** (2026-03-02): Analytics chart overflow fix – bar chart is now horizontally scrollable for long date ranges so it stays within the Analytics card.
 - **1.5.0** (2026-02-27): Generate single-profile & Education rendering – single active profile, stable Prompt dropdown, and improved Education section output.

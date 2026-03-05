@@ -394,3 +394,194 @@ export async function runResumePayload(params: {
     fallbackUsed: fallbackEnabled,
   };
 }
+
+// --- QA-only helper: generate answers for questions using existing tailored resume + JD ---
+
+export type QaResult = {
+  success: true;
+  qa: Array<{ question: string; answer: string }>;
+  rawText: string;
+  usage?: LlmUsage;
+  modelUsed: string;
+  fallbackUsed: boolean;
+  fallbackReason?: string;
+};
+
+export type QaFailure = {
+  success: false;
+  error: string;
+  rawText?: string;
+  modelUsed: string;
+  fallbackUsed: boolean;
+  fallbackReason?: string;
+};
+
+export type QaResponse = QaResult | QaFailure;
+
+/**
+ * Run QA-only call: given an existing Call B output (meta + resume) and JD, answer questions.
+ * Does NOT regenerate resume or cover letter; it only returns qa[].
+ */
+export async function runQaOnly(params: {
+  jdText: string;
+  callB: CallBOutput;
+  questions: string[];
+  model?: string;
+  fallbackModel?: string;
+  retryCount: number;
+  fallbackEnabled: boolean;
+}): Promise<QaResponse> {
+  const config = readConfig();
+  const model = params.model ?? config.resumePayloadModel ?? config.jdExtractionModel ?? 'gpt-4o-mini';
+  const fallbackModel = params.fallbackModel ?? config.fallbackModel ?? 'gpt-4o-mini';
+  const retryCount = params.retryCount ?? config.retryCountCallB;
+  const fallbackEnabled = params.fallbackEnabled ?? config.fallbackEnabled;
+
+  if (!params.questions || params.questions.length === 0) {
+    return {
+      success: false,
+      error: 'At least one question is required',
+      rawText: '',
+      modelUsed: model,
+      fallbackUsed: false,
+    };
+  }
+
+  const client = await getOpenAIClient();
+
+  const jdSnippet = params.jdText.length > 8000 ? `${params.jdText.slice(0, 8000)}\n...[truncated]` : params.jdText;
+  const resumeJson = JSON.stringify(
+    {
+      meta: params.callB.meta,
+      resume: params.callB.resume,
+    },
+    null,
+    2
+  );
+  const questionsList = params.questions.map((q, i) => `${i + 1}. ${q}`).join('\n');
+
+  const systemPrompt =
+    'You are a career coach helping a candidate prepare answers for job-application questions. ' +
+    'Use ONLY the provided tailored resume JSON and job description as your sources. ' +
+    'Return ONLY a single valid JSON object with a "qa" array; no markdown, no commentary.';
+
+  const userContent = `
+JOB DESCRIPTION (excerpt, plain text):
+${jdSnippet}
+
+TAILORED RESUME JSON (meta + resume) – this is already tailored for the job, do NOT rewrite it:
+${resumeJson}
+
+QUESTIONS TO ANSWER:
+${questionsList}
+
+RESPONSE FORMAT:
+Return ONLY a JSON object of the form:
+{
+  "qa": [
+    { "question": "original question text", "answer": "short but specific answer grounded in resume + JD" }
+  ]
+}
+
+Rules:
+- Each answer must be grounded in the provided resume + JD (no invented experience or employers).
+- Use a confident, first-person voice ("I ...").
+- Answers should generally be 2–5 sentences, concise but specific.
+- Preserve the original question text in the "question" field.
+`;
+
+  const messages: Array<{ role: 'system' | 'user'; content: string }> = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userContent },
+  ];
+
+  const runWithModel = async (useModel: string): Promise<{ raw: string; usage?: LlmUsage }> => {
+    const completion = await client.chat.completions.create({
+      model: useModel,
+      messages,
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+    });
+    const content = completion.choices[0]?.message?.content ?? '';
+    const usage = completion.usage
+      ? {
+          prompt_tokens: completion.usage.prompt_tokens,
+          completion_tokens: completion.usage.completion_tokens,
+          total_tokens: completion.usage.total_tokens,
+        }
+      : undefined;
+    return { raw: content, usage };
+  };
+
+  const tryParse = (raw: string, usedModel: string, usedFallback: boolean): QaResult | null => {
+    const parsed = parseStrictJson<{ qa?: unknown }>(raw);
+    if (!parsed.success) return null;
+    const data = parsed.data;
+    if (!data || typeof data !== 'object') return null;
+    const rawQa = (data as any).qa;
+    if (!Array.isArray(rawQa)) return null;
+    const qa = rawQa
+      .filter(
+        (item) =>
+          item &&
+          typeof item === 'object' &&
+          typeof (item as any).question === 'string' &&
+          typeof (item as any).answer === 'string'
+      )
+      .map((item) => ({
+        question: String((item as any).question),
+        answer: String((item as any).answer),
+      }));
+    if (qa.length === 0) return null;
+    return {
+      success: true,
+      qa,
+      rawText: capRawText(raw),
+      usage: undefined,
+      modelUsed: usedModel,
+      fallbackUsed: usedFallback,
+      fallbackReason: usedFallback ? 'Primary model failed or returned invalid QA JSON' : undefined,
+    };
+  };
+
+  let lastRaw = '';
+
+  // Primary model with retries
+  for (let attempt = 0; attempt <= retryCount; attempt++) {
+    try {
+      const { raw, usage } = await runWithModel(model);
+      lastRaw = raw;
+      const result = tryParse(raw, model, false);
+      if (result) {
+        result.usage = usage;
+        return result;
+      }
+    } catch (err) {
+      lastRaw = err instanceof Error ? err.message : String(err);
+      if (attempt === retryCount && fallbackEnabled) break;
+    }
+  }
+
+  // Fallback model once
+  if (fallbackEnabled) {
+    try {
+      const { raw, usage } = await runWithModel(fallbackModel);
+      lastRaw = raw;
+      const result = tryParse(raw, fallbackModel, true);
+      if (result) {
+        result.usage = usage;
+        return result;
+      }
+    } catch (err) {
+      lastRaw = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  return {
+    success: false,
+    error: lastRaw ? capRawText(lastRaw, 500) : 'QA generation failed after retries and fallback',
+    rawText: capRawText(lastRaw),
+    modelUsed: model,
+    fallbackUsed: fallbackEnabled,
+  };
+}

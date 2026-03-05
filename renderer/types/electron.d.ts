@@ -87,6 +87,7 @@ export interface ElectronAPI {
   // Generations
   generationGet: (generationId: string) => Promise<{ success: boolean; generation?: Generation | null; error?: string }>;
   generationGetLatestForJob: (jobId: string) => Promise<{ success: boolean; generation?: Generation | null; error?: string }>;
+  generationUpdateNotes: (generationId: string, notes: string | null) => Promise<{ success: boolean; generation?: Generation | null; error?: string }>;
   generationRunCallA: (params: { jdText: string; sourceUrl?: string; profileId: string }) => Promise<{
     success: boolean;
     jobId?: string;
@@ -111,6 +112,13 @@ export interface ElectronAPI {
     coverPdfPath?: string | null;
     jdTxtPath?: string | null;
     qaPdfPath?: string | null;
+  }>;
+  generationRunQa: (params: { generationId: string; questions: string[]; taskId?: number }) => Promise<{
+    success: boolean;
+    generationId?: string;
+    qaPdfPath?: string | null;
+    error?: string;
+    rawResponse?: string;
   }>;
   onGenerationProgress: (callback: (data: { taskId?: number; step: string; message: string; percent: number }) => void) => () => void;
   filesOpenFolder: (folderPath: string) => Promise<{ success: boolean; error?: string }>;

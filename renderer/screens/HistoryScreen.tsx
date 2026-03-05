@@ -27,6 +27,30 @@ function HistoryScreen() {
   const [jobDraftCompany, setJobDraftCompany] = useState('');
   const [jobDraftTitle, setJobDraftTitle] = useState('');
 
+  // Retry / regenerate state (one active retry at a time for MVP).
+  const [retryingGenerationId, setRetryingGenerationId] = useState<string | null>(null);
+  const [retryProgress, setRetryProgress] = useState<{
+    step: string;
+    message: string;
+    percent: number;
+  } | null>(null);
+  const [retryError, setRetryError] = useState<string | null>(null);
+
+  // Questions & answers from history (one active QA generation at a time for MVP).
+  const [qaEditingGenerationId, setQaEditingGenerationId] = useState<string | null>(null);
+  const [qaQuestionsDraft, setQaQuestionsDraft] = useState('');
+  const [qaLoadingGenerationId, setQaLoadingGenerationId] = useState<string | null>(null);
+  const [qaProgress, setQaProgress] = useState<{
+    step: string;
+    message: string;
+    percent: number;
+  } | null>(null);
+  const [qaError, setQaError] = useState<string | null>(null);
+
+  // Task IDs reserved for history flows so we don't collide with GenerateScreen's 1..10.
+  const HISTORY_RETRY_TASK_ID = 101;
+  const HISTORY_QA_TASK_ID = 102;
+
   useEffect(() => {
     // Restore last-used search options from localStorage so filters persist across navigation.
     try {
@@ -88,6 +112,27 @@ function HistoryScreen() {
         setProfiles([]);
       }
     })();
+  }, []);
+
+  // Listen for generation progress events and route history-specific taskIds
+  // to local retry / QA progress state.
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.onGenerationProgress((data) => {
+      if (data.taskId === HISTORY_RETRY_TASK_ID) {
+        setRetryProgress({
+          step: data.step,
+          message: data.message,
+          percent: data.percent,
+        });
+      } else if (data.taskId === HISTORY_QA_TASK_ID) {
+        setQaProgress({
+          step: data.step,
+          message: data.message,
+          percent: data.percent,
+        });
+      }
+    });
+    return unsubscribe;
   }, []);
 
   const loadCounts = async () => {
@@ -263,6 +308,119 @@ function HistoryScreen() {
     } catch (err) {
       console.error('Failed to save job edits:', err);
       await modal.alert('Failed to save changes');
+    }
+  };
+
+  const parseQuestions = (text: string): string[] => {
+    if (!text.trim()) return [];
+    return text
+      .split('\n')
+      .map((line) =>
+        line
+          .replace(/^\d+\.\s*/, '')
+          .replace(/^[-•*]\s*/, '')
+          .trim()
+      )
+      .filter((q) => q.length > 0);
+  };
+
+  const handleRetry = async (job: Job, generation: Generation) => {
+    if (!job.source_url || !job.source_url.trim()) {
+      await modal.alert('Cannot retry: job posting URL is missing for this history item.');
+      return;
+    }
+
+    setRetryingGenerationId(generation.generation_id);
+    setRetryProgress({ step: 'saving_job', message: 'Starting retry…', percent: 0 });
+    setRetryError(null);
+
+    try {
+      const res = await window.electronAPI.generationRunFull({
+        jdText: job.jd_text,
+        sourceUrl: job.source_url || undefined,
+        profileId: generation.profile_id,
+        promptId: generation.prompt_id || undefined,
+        taskId: HISTORY_RETRY_TASK_ID,
+      });
+
+      setRetryProgress(null);
+
+      if (!res.success || !res.generationId) {
+        setRetryError(res.error || 'Retry failed');
+        return;
+      }
+
+      const genRes = await window.electronAPI.generationGet(res.generationId);
+      if (!genRes.success || !genRes.generation) {
+        setRetryError(genRes.error || 'Retry succeeded but failed to load updated result');
+        return;
+      }
+
+      const updatedGeneration = genRes.generation;
+      setResults((prev) =>
+        prev.map((r) =>
+          r.generation && r.generation.generation_id === generation.generation_id
+            ? { ...r, generation: updatedGeneration }
+            : r
+        )
+      );
+      setRetryingGenerationId(null);
+      setRetryError(null);
+    } catch (err) {
+      console.error('Retry from history failed:', err);
+      setRetryProgress(null);
+      setRetryError('Retry failed');
+    }
+  };
+
+  const handleGenerateAnswers = async (generation: Generation) => {
+    const questions = parseQuestions(qaQuestionsDraft);
+    if (questions.length === 0) {
+      setQaError('Please enter at least one question.');
+      return;
+    }
+
+    setQaLoadingGenerationId(generation.generation_id);
+    setQaProgress({ step: 'generating_payload', message: 'Generating answers…', percent: 0 });
+    setQaError(null);
+
+    try {
+      const res = await window.electronAPI.generationRunQa({
+        generationId: generation.generation_id,
+        questions,
+        taskId: HISTORY_QA_TASK_ID,
+      });
+
+      setQaProgress(null);
+
+      if (!res.success || !res.generationId) {
+        setQaError(res.error || 'Failed to generate answers');
+        return;
+      }
+
+      const genRes = await window.electronAPI.generationGet(res.generationId);
+      if (!genRes.success || !genRes.generation) {
+        setQaError(genRes.error || 'Answers generated but failed to load updated result');
+        return;
+      }
+
+      const updatedGeneration = genRes.generation;
+      setResults((prev) =>
+        prev.map((r) =>
+          r.generation && r.generation.generation_id === generation.generation_id
+            ? { ...r, generation: updatedGeneration }
+            : r
+        )
+      );
+
+      setQaEditingGenerationId(null);
+      setQaQuestionsDraft('');
+      setQaLoadingGenerationId(null);
+      setQaError(null);
+    } catch (err) {
+      console.error('Generate answers from history failed:', err);
+      setQaProgress(null);
+      setQaError('Failed to generate answers');
     }
   };
 
@@ -478,7 +636,7 @@ function HistoryScreen() {
                         onClick={() => startEditingNotes(generation.generation_id, generation.notes)}
                         className="button-link history-item-notes-toggle"
                       >
-                        {(generation.notes ?? '').trim() ? 'Edit' : 'Add other info'}
+                        {(generation.notes ?? '').trim() ? 'Edit' : 'Other Info'}
                       </button>
                     </>
                   )}
@@ -498,8 +656,9 @@ function HistoryScreen() {
                         }
                       }}
                       className="button-link"
+                      aria-label="Open job posting"
                     >
-                      Job posting
+                      🔗
                     </button>
                   )}
                   <button
@@ -514,7 +673,7 @@ function HistoryScreen() {
                     className="button-link"
                     style={job.source_url ? { marginLeft: '12px' } : undefined}
                   >
-                    Folder
+                    📁
                   </button>
                   {generation.resume_pdf_path && (
                     <button
@@ -529,7 +688,7 @@ function HistoryScreen() {
                       className="button-link"
                       style={{ marginLeft: '12px' }}
                     >
-                      Resume PDF
+                      📄
                     </button>
                   )}
                   {generation.cover_pdf_path && (
@@ -545,7 +704,7 @@ function HistoryScreen() {
                       className="button-link"
                       style={{ marginLeft: '12px' }}
                     >
-                      Cover PDF
+                      ✉
                     </button>
                   )}
                   {generation.qa_pdf_path && (
@@ -560,9 +719,105 @@ function HistoryScreen() {
                       }}
                       className="button-link"
                       style={{ marginLeft: '12px' }}
+                      aria-label="Open answers PDF"
                     >
-                      QA PDF
+                      💡
                     </button>
+                  )}
+                  {generation && (
+                    <button
+                      onClick={() => handleRetry(job, generation)}
+                      className="button-link"
+                      style={{ marginLeft: '12px' }}
+                      disabled={retryingGenerationId === generation.generation_id}
+                      aria-label="Retry generation"
+                    >
+                      ⟳
+                    </button>
+                  )}
+                  {generation && generation.status === 'success' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQaEditingGenerationId(generation.generation_id);
+                        setQaQuestionsDraft('');
+                        setQaError(null);
+                      }}
+                      className="button-link history-item-qa-toggle"
+                      style={{ marginLeft: '12px' }}
+                      aria-label="Answer the questions"
+                    >
+                      ❓
+                    </button>
+                  )}
+                </div>
+              )}
+              {generation && generation.status === 'success' && (
+                <div className="history-item-qa">
+                  {qaEditingGenerationId === generation.generation_id && (
+                    <>
+                      <label className="history-item-qa-label">Questions for this job</label>
+                      <textarea
+                        className="history-item-qa-input"
+                        value={qaQuestionsDraft}
+                        onChange={(e) => setQaQuestionsDraft(e.target.value)}
+                        placeholder="Enter questions (one per line or as a numbered/bulleted list)..."
+                        rows={8}
+                      />
+                      {qaQuestionsDraft.trim() && (
+                        <div className="history-item-qa-count">
+                          {parseQuestions(qaQuestionsDraft).length} question
+                          {parseQuestions(qaQuestionsDraft).length !== 1 ? 's' : ''} entered
+                        </div>
+                      )}
+                      {qaError && (
+                        <div className="message message-error" style={{ marginTop: '8px' }}>
+                          {qaError}
+                        </div>
+                      )}
+                      <div className="history-item-qa-actions">
+                        <button
+                          type="button"
+                          onClick={() => handleGenerateAnswers(generation)}
+                          className="button-primary"
+                          disabled={qaLoadingGenerationId === generation.generation_id}
+                        >
+                          {qaLoadingGenerationId === generation.generation_id ? 'Generating…' : 'Generate'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setQaEditingGenerationId(null);
+                            setQaQuestionsDraft('');
+                            setQaError(null);
+                          }}
+                          className="button-secondary"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {qaLoadingGenerationId === generation.generation_id && qaProgress && (
+                    <div className="history-item-qa-progress">
+                      <div className="progress-bar">
+                        <div className="progress-fill" style={{ width: `${qaProgress.percent}%` }} />
+                      </div>
+                      <p className="progress-message">{qaProgress.message}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {retryingGenerationId === generation?.generation_id && retryProgress && (
+                <div className="history-item-retry-progress">
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${retryProgress.percent}%` }} />
+                  </div>
+                  <p className="progress-message">{retryProgress.message}</p>
+                  {retryError && (
+                    <div className="message message-error" style={{ marginTop: '8px' }}>
+                      {retryError}
+                    </div>
                   )}
                 </div>
               )}

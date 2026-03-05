@@ -135,6 +135,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
       jdTxtPath?: string | null;
       qaPdfPath?: string | null;
     }>,
+  generationRunQa: (params: { generationId: string; questions: string[]; taskId?: number }) =>
+    ipcRenderer.invoke('generation:runQa', params) as Promise<{
+      success: boolean;
+      generationId?: string;
+      qaPdfPath?: string | null;
+      error?: string;
+      rawResponse?: string;
+    }>,
   onGenerationProgress: (callback: (data: { taskId?: number; step: string; message: string; percent: number }) => void) => {
     const handler = (_: unknown, data: { taskId?: number; step: string; message: string; percent: number }) => callback(data);
     ipcRenderer.on('generation:progress', handler);
@@ -224,7 +232,14 @@ export type ElectronAPI = {
     jdTxtPath?: string | null;
     qaPdfPath?: string | null;
   }>;
-  onGenerationProgress: (callback: (data: { step: string; message: string; percent: number }) => void) => () => void;
+  generationRunQa: (params: { generationId: string; questions: string[]; taskId?: number }) => Promise<{
+    success: boolean;
+    generationId?: string;
+    qaPdfPath?: string | null;
+    error?: string;
+    rawResponse?: string;
+  }>;
+  onGenerationProgress: (callback: (data: { taskId?: number; step: string; message: string; percent: number }) => void) => () => void;
   filesOpenFolder: (folderPath: string) => Promise<{ success: boolean; error?: string }>;
   filesOpenFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
   filesOpenUrl: (url: string) => Promise<{ success: boolean; error?: string }>;

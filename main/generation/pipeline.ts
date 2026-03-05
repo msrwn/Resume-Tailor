@@ -2,7 +2,7 @@ import { readConfig } from '../config/configManager';
 import * as jobsDao from '../db/jobsDao';
 import * as profilesDao from '../db/profilesDao';
 import * as generationsDao from '../db/generationsDao';
-import { runJdExtraction, runResumePayload } from '../llm/openaiAdapter';
+import { runJdExtraction, runResumePayload, runQaOnly } from '../llm/openaiAdapter';
 import { buildOutputDirectory, computeBaseFolder, generateOutputFilePaths, ensureDir } from '../fs/filesystem';
 import { validateCallBOutput } from '../validation/validator';
 import { mergeResumeTemplate, getTemplatePlaceholderKeys, buildMergePayloadFromStructuredResume } from '../pdf/templateMerge';
@@ -812,6 +812,150 @@ export async function runFullGeneration(params: {
     resumePdfPath,
     coverPdfPath,
     jdTxtPath,
+    qaPdfPath,
+  };
+}
+
+export type RunQaForExistingGenerationResult = {
+  success: boolean;
+  generationId?: string;
+  qaPdfPath?: string | null;
+  error?: string;
+  rawResponse?: string;
+};
+
+/**
+ * Run QA-only generation for an existing successful generation.
+ * Reuses existing Call B output (meta + resume) and job JD; only (re)creates QA PDF.
+ */
+export async function runQaForExistingGeneration(params: {
+  generationId: string;
+  questions: string[];
+  onProgress?: ProgressCallback;
+}): Promise<RunQaForExistingGenerationResult> {
+  const config = readConfig();
+  const emit = (step: GenerationStep, message: string, percent: number) => {
+    params.onProgress?.(step, message, percent);
+  };
+
+  const { generationId, questions } = params;
+
+  if (!questions || questions.length === 0) {
+    return { success: false, generationId, error: 'At least one question is required' };
+  }
+
+  const generation = generationsDao.getGeneration(generationId);
+  if (!generation) {
+    return { success: false, generationId, error: 'Generation not found' };
+  }
+
+  const job = jobsDao.getJob(generation.job_id);
+  if (!job) {
+    return { success: false, generationId, error: 'Job not found for this generation' };
+  }
+
+  if (!generation.output_dir) {
+    return { success: false, generationId, error: 'Output directory is missing for this generation' };
+  }
+
+  const callBPath = path.join(generation.output_dir, 'call-b-response.json');
+  if (!fs.existsSync(callBPath)) {
+    return {
+      success: false,
+      generationId,
+      error: 'Call B response file is missing for this generation. Please regenerate the resume first.',
+    };
+  }
+
+  let callBJson: CallBOutput;
+  try {
+    const raw = fs.readFileSync(callBPath, 'utf-8');
+    callBJson = JSON.parse(raw) as CallBOutput;
+  } catch (err) {
+    return {
+      success: false,
+      generationId,
+      error: 'Failed to read existing resume payload for this generation',
+      rawResponse: err instanceof Error ? err.message : String(err),
+    };
+  }
+
+  emit('generating_payload', 'Generating answers…', 35);
+
+  const qaResult = await runQaOnly({
+    jdText: job.jd_text,
+    callB: callBJson,
+    questions,
+    model: config.resumePayloadModel,
+    fallbackModel: config.fallbackModel,
+    retryCount: config.retryCountCallB,
+    fallbackEnabled: config.fallbackEnabled,
+  });
+
+  if (!qaResult.success) {
+    emit('error', qaResult.error, 100);
+    return {
+      success: false,
+      generationId,
+      error: qaResult.error,
+      rawResponse: qaResult.rawText,
+    };
+  }
+
+  if (!qaResult.qa || qaResult.qa.length === 0) {
+    emit('error', 'QA generation did not return any answers', 100);
+    return {
+      success: false,
+      generationId,
+      error: 'QA generation did not return any answers',
+      rawResponse: qaResult.rawText,
+    };
+  }
+
+  const meta = callBJson.meta;
+  const ownerFirstName =
+    (meta?.owner_first_name ?? callBJson.owner_first_name)?.trim() || 'Resume';
+  const filePaths = generateOutputFilePaths({
+    outputDir: generation.output_dir,
+    ownerFirstName,
+  });
+
+  let qaPdfPath: string | null = null;
+
+  try {
+    emit('rendering_pdfs', 'Rendering QA PDF...', 92);
+    const qaHtml = buildQAHtml(qaResult.qa);
+    if (!qaHtml) {
+      emit('error', 'Failed to build QA HTML', 100);
+      return {
+        success: false,
+        generationId,
+        error: 'Failed to build QA HTML',
+      };
+    }
+    const qaPdfBuffer = await renderHtmlToPdf(qaHtml);
+    fs.writeFileSync(filePaths.qaPdfPath, qaPdfBuffer);
+    qaPdfPath = filePaths.qaPdfPath;
+
+    generationsDao.updateGenerationPaths(generationId, {
+      qa_pdf_path: qaPdfPath,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[Pipeline] QA-only PDF generation failed:', err);
+    emit('error', msg, 100);
+    return {
+      success: false,
+      generationId,
+      error: msg,
+    };
+  }
+
+  emit('done', 'QA generation complete.', 100);
+
+  return {
+    success: true,
+    generationId,
     qaPdfPath,
   };
 }

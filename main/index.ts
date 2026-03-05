@@ -9,7 +9,7 @@ import * as profilesDao from './db/profilesDao';
 import * as profilePromptsDao from './db/profilePromptsDao';
 import * as jobsDao from './db/jobsDao';
 import * as generationsDao from './db/generationsDao';
-import { runGenerationCallAOnly, runFullGeneration } from './generation/pipeline';
+import { runGenerationCallAOnly, runFullGeneration, runQaForExistingGeneration } from './generation/pipeline';
 import { disposePdfWindow } from './pdf/pdfRenderer';
 import type { AppConfig, GenerationStep } from '../shared/types';
 
@@ -574,3 +574,33 @@ ipcMain.handle('generation:runFull', async (_event, params) => {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 });
+
+ipcMain.handle(
+  'generation:runQa',
+  async (
+    _event,
+    params: {
+      generationId: string;
+      questions: string[];
+      taskId?: number;
+    }
+  ) => {
+    try {
+      const result = await runQaForExistingGeneration({
+        generationId: params.generationId,
+        questions: params.questions,
+        onProgress: (step: GenerationStep, message: string, percent: number) => {
+          mainWindow?.webContents.send('generation:progress', {
+            taskId: params.taskId,
+            step,
+            message,
+            percent,
+          });
+        },
+      });
+      return result;
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+);
