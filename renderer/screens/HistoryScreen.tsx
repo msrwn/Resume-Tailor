@@ -16,16 +16,66 @@ function HistoryScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [profileFilterId, setProfileFilterId] = useState<string>('');
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [dateRange, setDateRange] = useState<'all' | 'today' | '7d' | '30d'>('all');
+  const [dateRange, setDateRange] = useState<'all' | 'today' | '7d' | '30d' | 'custom'>('all');
+  const [customFrom, setCustomFrom] = useState<string>('');
+  const [customTo, setCustomTo] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [counts, setCounts] = useState<{ total: number; today: number } | null>(null);
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState('');
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [jobDraftCompany, setJobDraftCompany] = useState('');
+  const [jobDraftTitle, setJobDraftTitle] = useState('');
 
   useEffect(() => {
-    loadHistory();
+    // Restore last-used search options from localStorage so filters persist across navigation.
+    try {
+      const raw = window.localStorage.getItem('historySearchState_v1');
+      if (raw) {
+        const saved = JSON.parse(raw) as {
+          searchQuery?: string;
+          profileFilterId?: string;
+          dateRange?: 'all' | 'today' | '7d' | '30d' | 'custom';
+          customFrom?: string;
+          customTo?: string;
+        };
+        if (saved.searchQuery) setSearchQuery(saved.searchQuery);
+        if (saved.profileFilterId) setProfileFilterId(saved.profileFilterId);
+        if (saved.dateRange) setDateRange(saved.dateRange);
+        if (saved.customFrom) setCustomFrom(saved.customFrom);
+        if (saved.customTo) setCustomTo(saved.customTo);
+        const initialQuery = buildSearchQuery(
+          saved.searchQuery ?? '',
+          saved.profileFilterId ?? '',
+          saved.dateRange ?? 'all',
+          saved.customFrom ?? '',
+          saved.customTo ?? ''
+        );
+        loadHistory(initialQuery);
+      } else {
+        loadHistory();
+      }
+    } catch {
+      loadHistory();
+    }
     loadCounts();
   }, []);
+
+  useEffect(() => {
+    // Persist current search options so they survive tab navigation and restarts.
+    const state = {
+      searchQuery,
+      profileFilterId,
+      dateRange,
+      customFrom,
+      customTo,
+    };
+    try {
+      window.localStorage.setItem('historySearchState_v1', JSON.stringify(state));
+    } catch {
+      // ignore storage errors
+    }
+  }, [searchQuery, profileFilterId, dateRange, customFrom, customTo]);
 
   useEffect(() => {
     (async () => {
@@ -77,39 +127,68 @@ function HistoryScreen() {
     loadCounts();
   };
 
-  const handleSearch = () => {
+  const buildSearchQuery = (
+    keywordValue: string,
+    profileIdValue: string,
+    dateRangeValue: 'all' | 'today' | '7d' | '30d' | 'custom',
+    customFromValue: string,
+    customToValue: string
+  ):
+    | {
+        keyword?: string;
+        profile_id?: string;
+        fromDate?: string;
+        toDate?: string;
+      }
+    | undefined => {
     const query: {
       keyword?: string;
       profile_id?: string;
       fromDate?: string;
       toDate?: string;
-    } = searchQuery.trim()
-      ? { keyword: searchQuery.trim() }
+    } = keywordValue.trim()
+      ? { keyword: keywordValue.trim() }
       : {};
-    if (profileFilterId) query.profile_id = profileFilterId;
+    if (profileIdValue) query.profile_id = profileIdValue;
 
-    if (dateRange !== 'all') {
+    if (dateRangeValue === 'today' || dateRangeValue === '7d' || dateRangeValue === '30d') {
       const now = new Date();
       let from: Date | null = null;
-      if (dateRange === 'today') {
+      if (dateRangeValue === 'today') {
         from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      } else if (dateRange === '7d') {
+      } else if (dateRangeValue === '7d') {
         from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      } else if (dateRange === '30d') {
+      } else if (dateRangeValue === '30d') {
         from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       }
       if (from) {
         query.fromDate = from.toISOString();
       }
+    } else if (dateRangeValue === 'custom') {
+      if (customFromValue) {
+        const from = new Date(`${customFromValue}T00:00:00`);
+        query.fromDate = from.toISOString();
+      }
+      if (customToValue) {
+        const to = new Date(`${customToValue}T23:59:59.999`);
+        query.toDate = to.toISOString();
+      }
     }
 
-    loadHistory(Object.keys(query).length ? query : undefined);
+    return Object.keys(query).length ? query : undefined;
+  };
+
+  const handleSearch = () => {
+    const query = buildSearchQuery(searchQuery, profileFilterId, dateRange, customFrom, customTo);
+    loadHistory(query);
   };
 
   const handleClear = () => {
     setSearchQuery('');
     setProfileFilterId('');
     setDateRange('all');
+    setCustomFrom('');
+    setCustomTo('');
     loadHistory();
   };
 
@@ -150,6 +229,43 @@ function HistoryScreen() {
     }
   };
 
+  const startEditingJob = (job: Job) => {
+    setEditingJobId(job.job_id);
+    setJobDraftCompany(job.company_name ?? '');
+    setJobDraftTitle(job.job_title ?? '');
+  };
+
+  const cancelEditingJob = () => {
+    setEditingJobId(null);
+    setJobDraftCompany('');
+    setJobDraftTitle('');
+  };
+
+  const saveJobEdits = async (jobId: string) => {
+    try {
+      const payload = {
+        company_name: jobDraftCompany.trim() || null,
+        job_title: jobDraftTitle.trim() || null,
+      };
+      const res = await window.electronAPI.jobsUpdate(jobId, payload);
+      if (res.success && res.job) {
+        setResults((prev) =>
+          prev.map((r) =>
+            r.job.job_id === jobId
+              ? { ...r, job: res.job! }
+              : r
+          )
+        );
+        setEditingJobId(null);
+      } else {
+        await modal.alert(res.error || 'Failed to save changes');
+      }
+    } catch (err) {
+      console.error('Failed to save job edits:', err);
+      await modal.alert('Failed to save changes');
+    }
+  };
+
   return (
     <div className="history-screen">
       <h1>History</h1>
@@ -184,14 +300,35 @@ function HistoryScreen() {
         <select
           className="history-date-filter"
           value={dateRange}
-          onChange={(e) => setDateRange(e.target.value as 'all' | 'today' | '7d' | '30d')}
+          onChange={(e) =>
+            setDateRange(e.target.value as 'all' | 'today' | '7d' | '30d' | 'custom')
+          }
           title="Filter by date"
         >
           <option value="all">All time</option>
           <option value="today">Today</option>
           <option value="7d">Last 7 days</option>
           <option value="30d">Last 30 days</option>
+          <option value="custom">Custom range</option>
         </select>
+        {dateRange === 'custom' && (
+          <div className="history-date-custom-group">
+            <input
+              type="date"
+              className="history-date-custom"
+              value={customFrom}
+              onChange={(e) => setCustomFrom(e.target.value)}
+              title="From date"
+            />
+            <input
+              type="date"
+              className="history-date-custom"
+              value={customTo}
+              onChange={(e) => setCustomTo(e.target.value)}
+              title="To date"
+            />
+          </div>
+        )}
         <button onClick={handleSearch} className="button-primary">
           Search
         </button>
@@ -201,6 +338,12 @@ function HistoryScreen() {
       </div>
 
       {error && <div className="message message-error">{error}</div>}
+
+      {!loading && results.length > 0 && (
+        <div className="history-result-count">
+          Showing {results.length} result{results.length !== 1 ? 's' : ''} for current filters
+        </div>
+      )}
 
       {loading ? (
         <div className="screen-placeholder">
@@ -217,8 +360,49 @@ function HistoryScreen() {
             <div key={generation?.generation_id ?? job.job_id} className="history-item">
               <div className="history-item-header">
                 <div className="history-item-title">
-                  <h3>{job.company_name || 'Unknown Company'}</h3>
-                  <span className="history-item-role">{job.job_title || 'Unknown Role'}</span>
+                  {editingJobId === job.job_id ? (
+                    <>
+                      <input
+                        type="text"
+                        className="history-item-company-input"
+                        value={jobDraftCompany}
+                        onChange={(e) => setJobDraftCompany(e.target.value)}
+                        placeholder="Company name"
+                      />
+                      <input
+                        type="text"
+                        className="history-item-role-input"
+                        value={jobDraftTitle}
+                        onChange={(e) => setJobDraftTitle(e.target.value)}
+                        placeholder="Role title"
+                      />
+                      <div
+                        className="history-item-edit-header-actions"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => saveJobEdits(job.job_id)}
+                          className="button-icon button-icon-save"
+                          aria-label="Save header changes"
+                        >
+                          ✓
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEditingJob}
+                          className="button-icon button-icon-cancel"
+                          aria-label="Cancel header edit"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <h3>{job.company_name || 'Unknown Company'}</h3>
+                      <span className="history-item-role">{job.job_title || 'Unknown Role'}</span>
+                    </>
+                  )}
                   {profileName && (
                     <span className="history-item-profile">Profile: {profileName}</span>
                   )}
@@ -228,6 +412,16 @@ function HistoryScreen() {
                 </div>
                 <div className="history-item-meta">
                   <span className="history-item-date">{formatDate(job.created_at)}</span>
+                  {editingJobId !== job.job_id && (
+                    <button
+                      type="button"
+                      onClick={() => startEditingJob(job)}
+                      className="button-link history-item-edit-header"
+                      aria-label="Edit header"
+                    >
+                      ✎
+                    </button>
+                  )}
                   {generation && (
                     <span className={`status-badge status-${generation.status}`}>
                       {generation.status}

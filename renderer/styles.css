@@ -775,7 +775,7 @@ button:disabled {
 .generate-profile-checkbox-label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   cursor: pointer;
   font-size: 14px;
   color: #2c3e50;
@@ -783,8 +783,9 @@ button:disabled {
   min-height: 22px;
 }
 
-.generate-profile-checkbox-label input[type="checkbox"] {
-  margin: 0;
+.generate-profile-checkbox-label input[type="checkbox"],
+.generate-profile-checkbox-label input[type="radio"] {
+  margin: 0 6px 0 0;
   width: 18px;
   height: 18px;
   flex-shrink: 0;
@@ -800,6 +801,19 @@ button:disabled {
   margin: 8px 0 0 0;
   font-size: 13px;
   color: #666;
+}
+
+.generate-profiles-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.generate-profiles-label {
+  min-width: 70px;
+  padding-top: 6px;
+  font-weight: 500;
+  color: #555;
 }
 
 .generate-form .button-primary {
@@ -933,6 +947,12 @@ button:disabled {
   margin-bottom: 24px;
 }
 
+.history-result-count {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 16px;
+}
+
 .history-stat-total {
   font-weight: 500;
 }
@@ -975,6 +995,20 @@ button:disabled {
 .history-date-filter:focus {
   outline: none;
   border-color: #3498db;
+}
+
+.history-date-custom-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.history-date-custom {
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  min-width: 160px;
 }
 
 .search-input {
@@ -1153,6 +1187,40 @@ button:disabled {
 .history-item-notes-actions {
   display: flex;
   gap: 8px;
+}
+
+.history-item-edit-header-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.button-icon {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button-icon-save {
+  background: #27ae60;
+}
+
+.button-icon-save:hover:not(:disabled) {
+  background: #229954;
+}
+
+.button-icon-cancel {
+  background: #e74c3c;
+}
+
+.button-icon-cancel:hover:not(:disabled) {
+  background: #c0392b;
 }
 
 .history-item-actions {

@@ -66,6 +66,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('jobs:get', jobId) as Promise<{ success: boolean; job?: Job | null; error?: string }>,
   jobsCreate: (data: { jd_text: string; source_url?: string }) =>
     ipcRenderer.invoke('jobs:create', data) as Promise<{ success: boolean; job?: Job; error?: string }>,
+  jobsUpdate: (jobId: string, data: Parameters<typeof import('./db/jobsDao').updateJobExtraction>[1]) =>
+    ipcRenderer.invoke('jobs:update', jobId, data) as Promise<{ success: boolean; job?: Job; error?: string }>,
 
   // History
   historyList: (query?: {
@@ -176,6 +178,10 @@ export type ElectronAPI = {
   profilePromptsArchive: (promptId: string) => Promise<{ success: boolean; error?: string }>;
   jobsGet: (jobId: string) => Promise<{ success: boolean; job?: Job | null; error?: string }>;
   jobsCreate: (data: { jd_text: string; source_url?: string }) => Promise<{ success: boolean; job?: Job; error?: string }>;
+  jobsUpdate: (
+    jobId: string,
+    data: Parameters<typeof import('./db/jobsDao').updateJobExtraction>[1]
+  ) => Promise<{ success: boolean; job?: Job; error?: string }>;
   historyList: (query?: {
     company_name?: string;
     job_title?: string;

@@ -81,7 +81,9 @@ Call B always returns a single JSON object with this shape. This is the **only s
     "contact_email": "name@example.com",
     "contact_phone": "+1-555-123-4567",
     "contact_github": "github.com/username",
-    "contact_address": "New York, NY, USA"
+    "contact_address": "New York, NY, USA",
+    "contact_linkedin": "linkedin.com/in/username",
+    "contact_website": "https://username.dev"
   },
   "resume": {
     "headline": "Senior Mobile Engineer – React Native, TypeScript, Firebase",
@@ -106,6 +108,16 @@ Call B always returns a single JSON object with this shape. This is the **only s
       {
         "category": "Backend & Infra",
         "items": ["Node.js", "PostgreSQL", "Firebase", "Cloud Functions", "REST APIs"]
+      }
+    ],
+    "languages": [
+      {
+        "name": "English",
+        "proficiency": "Native or Bilingual"
+      },
+      {
+        "name": "Italian",
+        "proficiency": "Native or Bilingual"
       }
     ],
     "experience": [

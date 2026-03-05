@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor** (x.Y.0): New features (e.g. QA, multi-profile). Backward compatible.
 - **Major** (X.0.0): Breaking API or data changes.
 
+## [1.6.0] - 2026-03-05
+
+### Added
+- **Gia profile**
+  - Extended Call B JSON schema and Gia prompt to support richer header contact data (`contact_linkedin`, `contact_website`) and a structured `languages` array.
+  - Updated Gia HTML template to render a Languages section and LinkedIn in the contact line when available.
+- **History screen**
+  - Keyword search now scans across job fields (company, role, JD text, contact, URL), profile name, prompt name, and manual notes for each generation.
+  - New **Custom range** option in the date filter with explicit From/To pickers stacked vertically.
+  - Result count indicator (“Showing N results for current filters”) under the search bar.
+  - Inline editing of history card headers (company name and role title) with compact green/red icon buttons to save/cancel.
+- **Generate screen**
+  - Profiles selection row now aligns the “Profiles” label and all profile radio buttons horizontally for a cleaner header lane.
+
+### Changed
+- **Gia profile**
+  - Relaxed the hardcoded “10+ years” summary constraint; the model now mirrors true seniority from the base resume (e.g. 15+ or 20+ years).
+  - Strengthened constraints to:
+    - Preserve the full employment history from the base resume (no truncation at 2019, no gaps).
+    - Always include a Languages section in the tailored resume when the base resume contains one.
+  - Certificates without a real URL are now rendered as plain text list items; URLs are no longer invented or used when absent.
+- **History screen**
+  - Search filters (query, profile, date range, custom from/to) now persist across navigation and app restarts via `localStorage`.
+
+### Documentation
+- Feature doc: `docs/features/GIA_PROFILE_AND_HISTORY_ENHANCEMENTS_2026-03-05.md`.
+- Feature index: `docs/FEATURES.md` updated with Gia Profile & History Enhancements entry.
+
 ## [1.5.2] - 2026-03-03
 
 ### Added

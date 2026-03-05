@@ -41,6 +41,21 @@ export interface ElectronAPI {
   // Jobs
   jobsGet: (jobId: string) => Promise<{ success: boolean; job?: Job | null; error?: string }>;
   jobsCreate: (data: { jd_text: string; source_url?: string }) => Promise<{ success: boolean; job?: Job; error?: string }>;
+  jobsUpdate: (
+    jobId: string,
+    data: Partial<{
+      company_name: string | null;
+      job_title: string | null;
+      job_type: string | null;
+      budget: string | null;
+      required_tech_stack: string | null;
+      job_description_clean: string | null;
+      contact_email: string | null;
+      contact_phone: string | null;
+      follow_up_links_json: string | null;
+      contact_source_text: string | null;
+    }>
+  ) => Promise<{ success: boolean; job?: Job; error?: string }>;
 
   // History
   historyList: (query?: {

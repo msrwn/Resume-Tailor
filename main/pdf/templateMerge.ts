@@ -8,6 +8,8 @@ const PLACEHOLDER_ALIASES: Record<string, string> = {
   email: 'contact_email',
   github: 'contact_github',
   address: 'contact_address',
+  linkedin: 'contact_linkedin',
+  website: 'contact_website',
   'full name': 'owner_full_name',
   full_name: 'owner_full_name',
   'first name': 'owner_first_name',
@@ -180,16 +182,40 @@ export function buildMergePayloadFromStructuredResume(
     certs.length > 0
       ? '<ul>\n' +
         certs
-          .map(
-            (c) =>
-              `<li><a href="${escapeHtmlAttr(c?.url ?? '')}">${escapeHtmlText(c?.title ?? '')}</a></li>`
-          )
+          .map((c) => {
+            const title = escapeHtmlText(c?.title ?? '');
+            const rawUrl = typeof c?.url === 'string' ? c.url.trim() : '';
+            if (!title) return '';
+            if (rawUrl) {
+              return `<li><a href="${escapeHtmlAttr(rawUrl)}">${title}</a></li>`;
+            }
+            return `<li>${title}</li>`;
+          })
+          .filter((line) => line.length > 0)
           .join('\n') +
         '\n</ul>'
       : '';
 
   const rawHeadline = resume.headline ?? '';
   const headline = rawHeadline.replace(/^\.\.\.\.\s*/, '');
+
+  // Languages: flatten into a simple HTML list for {languages} placeholder.
+  let languagesHtml = '';
+  if (Array.isArray(resume.languages) && resume.languages.length > 0) {
+    const items: string[] = [];
+    for (const lang of resume.languages) {
+      if (!lang || typeof lang !== 'object') continue;
+      const name = typeof lang.name === 'string' ? lang.name.trim() : '';
+      const proficiency =
+        typeof lang.proficiency === 'string' ? lang.proficiency.trim() : '';
+      if (!name && !proficiency) continue;
+      const line = proficiency ? `${escapeHtmlText(name)} — ${escapeHtmlText(proficiency)}` : escapeHtmlText(name);
+      items.push(`<li>${line}</li>`);
+    }
+    if (items.length) {
+      languagesHtml = '<ul>\n' + items.join('\n') + '\n</ul>';
+    }
+  }
 
   // Education: flatten structured entries into a simple HTML list for {education} placeholder.
   const toEducationLine = (e: CallBEducationEntry): string => {
@@ -241,6 +267,7 @@ export function buildMergePayloadFromStructuredResume(
     freelancing: freelancingHtml,
     education: educationText,
     certificates: certificatesHtml,
+    languages: languagesHtml,
   };
   return payload;
 }
@@ -348,6 +375,7 @@ export function mergeResumeTemplate(
   const certificatesHtml = get('certificates');
   const freelancingHtml = get('freelancing');
   const educationHtml = get('education');
+  const languagesHtml = get('languages');
 
   // 1) Section replacements: insert Skills, Experience, Certificates (always replace so placeholder content is gone)
   out = out.replace(
@@ -365,6 +393,10 @@ export function mergeResumeTemplate(
   out = out.replace(
     /(<h2[^>]*>\s*Education\s*<\/h2>\s*)<ul>[\s\S]*?<\/ul>/i,
     (_, prefix) => (educationHtml ? prefix + educationHtml : prefix)
+  );
+  out = out.replace(
+    /(<h2[^>]*>\s*Languages\s*<\/h2>\s*)<ul>[\s\S]*?<\/ul>/i,
+    (_, prefix) => (languagesHtml ? prefix + languagesHtml : prefix)
   );
   out = out.replace(
     /(<h2[^>]*>\s*Certificates\s*<\/h2>\s*)<ul>[\s\S]*?<\/ul>/i,

@@ -157,6 +157,10 @@ export type CallBMeta = {
   contact_phone?: string;
   contact_github?: string;
   contact_address?: string;
+  /** Optional LinkedIn profile URL or handle. */
+  contact_linkedin?: string;
+  /** Optional personal website or portfolio URL. */
+  contact_website?: string;
 };
 
 export type CallBEducationEntry = {
@@ -195,9 +199,11 @@ export type CallBResume = {
   }>;
   /** Dedicated freelance/client projects (output format); when present, used for freelancing section. */
   freelance_projects?: CallBFreelanceProject[];
-  certificates?: Array<{ title: string; url: string }>;
+  certificates?: Array<{ title: string; url?: string }>;
   /** Education entries; supports multiple degrees. */
   education?: CallBEducationEntry[];
+  /** Languages section, derived from base resume when present. */
+  languages?: Array<{ name: string; proficiency?: string }>;
 };
 
 /** One profile's result from multi-profile generation. */

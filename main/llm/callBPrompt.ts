@@ -53,7 +53,9 @@ OUTPUT RESULT IN THE SAME FORMAT AS FOLLOWING JSON PAYLOAD
     "contact_email": "name@example.com",
     "contact_phone": "+1-555-123-4567",
     "contact_github": "github.com/username",
-    "contact_address": "New York, NY, USA"
+    "contact_address": "New York, NY, USA",
+    "contact_linkedin": "linkedin.com/in/username",
+    "contact_website": "https://username.dev"
   },
   "resume": {
     "headline": "Senior Mobile Engineer – React Native, TypeScript, Firebase",
@@ -65,6 +67,10 @@ OUTPUT RESULT IN THE SAME FORMAT AS FOLLOWING JSON PAYLOAD
       { "category": "Languages & Core", "items": ["TypeScript", "JavaScript (ES2020+)", "Kotlin", "Java", "Dart"] },
       { "category": "Mobile Frameworks", "items": ["React Native", "Flutter", "Android (native)"] },
       { "category": "Backend & Infra", "items": ["Node.js", "PostgreSQL", "Firebase", "Cloud Functions", "REST APIs"] }
+    ],
+    "languages": [
+      { "name": "English", "proficiency": "Native or Bilingual" },
+      { "name": "Italian", "proficiency": "Native or Bilingual" }
     ],
     "experience": [
       {

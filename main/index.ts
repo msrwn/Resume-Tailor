@@ -325,6 +325,18 @@ ipcMain.handle('jobs:create', (_event, data: Parameters<typeof jobsDao.createJob
   }
 });
 
+ipcMain.handle(
+  'jobs:update',
+  (_event, jobId: string, data: Parameters<typeof jobsDao.updateJobExtraction>[1]) => {
+    try {
+      const job = jobsDao.updateJobExtraction(jobId, data);
+      return { success: true, job };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+);
+
 ipcMain.handle('jobs:updateExtraction', (_event, jobId: string, data: Parameters<typeof jobsDao.updateJobExtraction>[1]) => {
   try {
     const job = jobsDao.updateJobExtraction(jobId, data);
@@ -339,8 +351,14 @@ type HistoryListQuery = Parameters<typeof jobsDao.searchJobs>[0] & { profile_id?
 ipcMain.handle('history:list', (_event, query?: HistoryListQuery) => {
   try {
     const { profile_id: profileId, ...searchQuery } = query || {};
-    const jobs = jobsDao.searchJobs(searchQuery);
-    const byGeneration: Array<{ job: typeof jobs[0]; generation: import('../shared/types').Generation; profileName: string | null; promptName: string | null }> = [];
+    const { keyword, ...jobQuery } = searchQuery as HistoryListQuery & { keyword?: string };
+    const jobs = jobsDao.searchJobs(jobQuery);
+    const byGeneration: Array<{
+      job: typeof jobs[0];
+      generation: import('../shared/types').Generation;
+      profileName: string | null;
+      promptName: string | null;
+    }> = [];
     for (const job of jobs) {
       const generations = generationsDao.getGenerationsForJob(job.job_id);
       for (const generation of generations) {
@@ -355,8 +373,33 @@ ipcMain.handle('history:list', (_event, query?: HistoryListQuery) => {
         });
       }
     }
-    byGeneration.sort((a, b) => new Date(b.generation.created_at).getTime() - new Date(a.generation.created_at).getTime());
-    return { success: true, results: byGeneration };
+
+    // When a keyword is provided, filter across additional fields (JD text, contact, notes, profile/prompt, etc.).
+    let filtered = byGeneration;
+    const trimmedKeyword = typeof keyword === 'string' ? keyword.trim() : '';
+    if (trimmedKeyword) {
+      const kw = trimmedKeyword.toLowerCase();
+      filtered = byGeneration.filter(({ job, generation, profileName, promptName }) => {
+        const haystacks: string[] = [];
+        if (job.company_name) haystacks.push(job.company_name);
+        if (job.job_title) haystacks.push(job.job_title);
+        if (job.jd_text) haystacks.push(job.jd_text);
+        if (job.job_description_clean) haystacks.push(job.job_description_clean);
+        if (job.contact_email) haystacks.push(job.contact_email);
+        if (job.contact_phone) haystacks.push(job.contact_phone);
+        if (job.source_url) haystacks.push(job.source_url);
+        if (generation.notes) haystacks.push(generation.notes);
+        if (profileName) haystacks.push(profileName);
+        if (promptName) haystacks.push(promptName);
+        return haystacks.some((text) => text.toLowerCase().includes(kw));
+      });
+    }
+
+    filtered.sort(
+      (a, b) =>
+        new Date(b.generation.created_at).getTime() - new Date(a.generation.created_at).getTime()
+    );
+    return { success: true, results: filtered };
   } catch (error) {
     return { success: false, error: String(error) };
   }

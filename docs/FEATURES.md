@@ -12,6 +12,7 @@ Feature documentation is organized by feature name in the `features/` subdirecto
 - **Core MVP** - See `PRD.md`, `TRD.md`, and `IMPLEMENTATION.md` for the main application features
 
 ### Completed Features
+- **[Gia Profile & History Enhancements](./features/GIA_PROFILE_AND_HISTORY_ENHANCEMENTS_2026-03-05.md)** ✅ - Gia resume header/languages fixes, improved History search/editing, and cleaner Generate profile row (v1.6.0)
 - **[History Card Other Info](./features/HISTORY_CARD_OTHER_INFO_2026-03-03.md)** ✅ - Manual notes per history card (Other Info): add, edit, persist (v1.5.2)
 - **[Generate Single-Profile & Education Rendering](./features/GENERATE_SINGLE_PROFILE_EDUCATION_2026-02-27.md)** ✅ - Single-profile Generate behaviour, stable Prompt dropdown, and improved Education section rendering (v1.5.0)
 - **[Prompt Traceability & History Metadata](./features/PROMPT_TRACEABILITY_2026-02-26.md)** ✅ - Persist selected prompt, track `prompt_id` per generation, and show prompt name on History cards (v1.4.1)
@@ -57,4 +58,4 @@ Each feature document should include:
 
 ---
 
-Last updated: 2026-03-03 (v1.5.2 – History card Other Info)
+Last updated: 2026-03-05 (v1.6.0 – Gia profile & History enhancements)

@@ -64,6 +64,8 @@ function applyMetaToPayload(
   if (meta.contact_phone) payload.contact_phone = meta.contact_phone;
   if (meta.contact_github) payload.contact_github = meta.contact_github;
   if (meta.contact_address) payload.contact_address = meta.contact_address;
+  if (meta.contact_linkedin) payload.contact_linkedin = meta.contact_linkedin;
+  if (meta.contact_website) payload.contact_website = meta.contact_website;
 }
 
 /** Config type for pipeline (subset we need in helpers). */
