@@ -177,6 +177,24 @@ function ProfilesScreen() {
     }
   };
 
+  const handleDownload = async () => {
+    if (!selectedProfile) return;
+    try {
+      const response = await window.electronAPI.profilesDownload(selectedProfile.profile_id);
+      if (response.canceled) return;
+      if (response.success) {
+        await modal.alert(
+          `Profile saved to folder.\n\nFiles: base resume (.txt), template (.html), and one prompt file per prompt (.txt).`
+        );
+      } else {
+        await modal.alert(response.error || 'Failed to download profile');
+      }
+    } catch (err) {
+      await modal.alert('Failed to download profile');
+      console.error(err);
+    }
+  };
+
   const handleValidate = async () => {
     try {
       const response = await window.electronAPI.profilesValidate({
@@ -383,6 +401,9 @@ function ProfilesScreen() {
                       </button>
                       <button onClick={handleValidate} className="button-secondary">
                         Validate
+                      </button>
+                      <button onClick={handleDownload} className="button-secondary" title="Download base resume, template, and prompts as text files">
+                        Download
                       </button>
                       {!selectedProfile.is_default && (
                         <button onClick={handleSetDefault} className="button-secondary">

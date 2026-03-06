@@ -7,6 +7,19 @@ export type DailyGenerationCount = {
   count: number;
 };
 
+/** Per-profile count for a single day (for stacked bar chart). */
+export type DailyProfileSegment = {
+  profile_id: string;
+  count: number;
+};
+
+/** Daily totals with per-profile breakdown for stacked chart. */
+export type DailyGenerationCountByProfile = {
+  date: string;
+  total: number;
+  byProfile: DailyProfileSegment[];
+};
+
 export type CreateGenerationParams = {
   job_id: string;
   profile_id: string;
@@ -235,6 +248,58 @@ export function getDailyGenerationCounts(params?: {
   const stmt = db.prepare(sql);
   const rows = stmt.all(...args) as DailyGenerationCount[];
   return rows;
+}
+
+/**
+ * Get counts of successful generations grouped by date and profile (for stacked bar chart).
+ * Returns one row per date with total and per-profile segments.
+ */
+export function getDailyGenerationCountsByProfile(params?: {
+  fromDate?: string;
+  toDate?: string;
+}): DailyGenerationCountByProfile[] {
+  const db = getDatabase();
+
+  let sql = `
+    SELECT
+      date(created_at, 'localtime') as date,
+      profile_id,
+      COUNT(*) as count
+    FROM generations
+    WHERE status = 'success'
+  `;
+  const args: unknown[] = [];
+
+  if (params?.fromDate && params?.toDate) {
+    sql += ` AND date(created_at, 'localtime') BETWEEN ? AND ?`;
+    args.push(params.fromDate, params.toDate);
+  } else if (params?.fromDate) {
+    sql += ` AND date(created_at, 'localtime') >= ?`;
+    args.push(params.fromDate);
+  } else if (params?.toDate) {
+    sql += ` AND date(created_at, 'localtime') <= ?`;
+    args.push(params.toDate);
+  }
+
+  sql += `
+    GROUP BY date(created_at, 'localtime'), profile_id
+    ORDER BY date(created_at, 'localtime') ASC, profile_id ASC
+  `;
+
+  const stmt = db.prepare(sql);
+  const rows = stmt.all(...args) as Array<{ date: string; profile_id: string; count: number }>;
+
+  const byDate = new Map<string, DailyGenerationCountByProfile>();
+  for (const row of rows) {
+    let day = byDate.get(row.date);
+    if (!day) {
+      day = { date: row.date, total: 0, byProfile: [] };
+      byDate.set(row.date, day);
+    }
+    day.total += row.count;
+    day.byProfile.push({ profile_id: row.profile_id, count: row.count });
+  }
+  return Array.from(byDate.values()).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
 /**
