@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor** (x.Y.0): New features (e.g. QA, multi-profile). Backward compatible.
 - **Major** (X.0.0): Breaking API or data changes.
 
+## [1.8.0] - 2026-03-06
+
+### Added
+- **Analytics screen**
+  - Bar chart is now **stacked by profile**: one bar per day with segments in distinct colors per profile; total resumes count shown above each bar.
+  - **Legend** below the chart title (profile name + color swatch) in a stable order.
+  - **Segment hover tooltip**: custom tooltip showing profile name and count (e.g. “Profile A: 10 resumes”) when hovering a segment; works reliably on small segments.
+  - **Daily breakdown table** extended with **Total** column and one column per profile showing that profile’s count and percentage for each day (zero shown as “—”).
+- **Backend / IPC**
+  - Analytics handler now returns `data` as daily counts with per-profile breakdown (`getDailyGenerationCountsByProfile`); summary and table use the same response.
+
+### Changed
+- **Analytics screen**
+  - Replaced single-color daily bar chart with stacked segments; profile names resolved from profiles list (deleted profiles shown as “Unknown profile” with neutral color).
+
+### Documentation
+- Feature doc: `docs/features/ANALYTICS_STACKED_BAR_BY_PROFILE_2026-03-06.md`.
+- Feature index: `docs/FEATURES.md` updated with Analytics Stacked Bar by Profile entry.
+
 ## [1.7.0] - 2026-03-05
 
 ### Added
@@ -276,6 +295,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **1.8.0** (2026-03-06): Analytics stacked bar by profile – per-day chart stacked by profile with legend, segment tooltips, and daily table with per-profile count/percentage.
 - **1.7.0** (2026-03-05): History retry & QA from History – retry/regenerate from history cards and QA-only answers using existing tailored resume + JD; icon actions and Generate/Profiles alignment polish.
 - **1.5.2** (2026-03-03): History card Other Info – manual notes per application (add/edit, persisted per generation).
 - **1.5.1** (2026-03-02): Analytics chart overflow fix – bar chart is now horizontally scrollable for long date ranges so it stays within the Analytics card.

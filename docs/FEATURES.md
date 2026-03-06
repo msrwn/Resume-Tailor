@@ -12,6 +12,7 @@ Feature documentation is organized by feature name in the `features/` subdirecto
 - **Core MVP** - See `PRD.md`, `TRD.md`, and `IMPLEMENTATION.md` for the main application features
 
 ### Completed Features
+- **[Analytics Stacked Bar by Profile](./features/ANALYTICS_STACKED_BAR_BY_PROFILE_2026-03-06.md)** ✅ - Per-day bar chart stacked by profile with legend, segment tooltips, and daily breakdown table with per-profile count/percentage (v1.8.0)
 - **[Gia Profile & History Enhancements](./features/GIA_PROFILE_AND_HISTORY_ENHANCEMENTS_2026-03-05.md)** ✅ - Gia resume header/languages fixes, improved History search/editing, and cleaner Generate profile row (v1.6.0)
 - **[History Card Other Info](./features/HISTORY_CARD_OTHER_INFO_2026-03-03.md)** ✅ - Manual notes per history card (Other Info): add, edit, persist (v1.5.2)
 - **[Generate Single-Profile & Education Rendering](./features/GENERATE_SINGLE_PROFILE_EDUCATION_2026-02-27.md)** ✅ - Single-profile Generate behaviour, stable Prompt dropdown, and improved Education section rendering (v1.5.0)
@@ -59,4 +60,4 @@ Each feature document should include:
 
 ---
 
-Last updated: 2026-03-05 (v1.7.0 – History retry & QA from History)
+Last updated: 2026-03-06 (v1.8.0 – Analytics stacked bar by profile)
