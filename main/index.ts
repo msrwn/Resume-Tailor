@@ -239,6 +239,53 @@ ipcMain.handle('profiles:archive', (_event, profileId: string) => {
   }
 });
 
+function sanitizeFileName(name: string): string {
+  return name
+    .replace(/[\s/\\:*?"<>|]+/g, '_')
+    .replace(/_+/g, '_')
+    .trim() || 'unnamed';
+}
+
+ipcMain.handle('profiles:download', async (_event, profileId: string) => {
+  try {
+    const profile = profilesDao.getProfile(profileId);
+    if (!profile) {
+      return { success: false, error: 'Profile not found' };
+    }
+    const prompts = profilePromptsDao.listPromptsForProfile(profileId);
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ['openDirectory'],
+      title: 'Choose folder to save profile files',
+    });
+    if (result.canceled || !result.filePaths[0]) {
+      return { success: false, canceled: true };
+    }
+    const dir = result.filePaths[0];
+    const baseName = sanitizeFileName(profile.name);
+    fs.writeFileSync(
+      path.join(dir, `${baseName}_base_resume.txt`),
+      profile.base_resume_text ?? '',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(dir, `${baseName}_template.html`),
+      profile.template_html,
+      'utf-8'
+    );
+    prompts.forEach((p, index) => {
+      const promptName = sanitizeFileName(p.name) || `prompt_${index + 1}`;
+      fs.writeFileSync(
+        path.join(dir, `${baseName}_prompt_${promptName}.txt`),
+        p.prompt_text,
+        'utf-8'
+      );
+    });
+    return { success: true, path: dir };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
 ipcMain.handle('profiles:validate', (_event, data: { rules_text: string; template_html: string }) => {
   try {
     const errors: string[] = [];
@@ -449,7 +496,7 @@ ipcMain.handle(
         fromDate = start.toISOString().slice(0, 10);
       }
 
-      const daily = generationsDao.getDailyGenerationCounts({
+      const dailyByProfile = generationsDao.getDailyGenerationCountsByProfile({
         fromDate,
         toDate: params?.range === 'all' && !params?.toDate ? undefined : toDate,
       });
@@ -464,9 +511,9 @@ ipcMain.handle(
         )
           .toISOString()
           .slice(0, 10);
-        return daily
+        return dailyByProfile
           .filter((d) => d.date >= cutoff && d.date <= toDate)
-          .reduce((acc, d) => acc + d.count, 0);
+          .reduce((acc, d) => acc + d.total, 0);
       };
 
       const last7Days = sumLastNDays(7);
@@ -480,7 +527,7 @@ ipcMain.handle(
           last30Days,
           allTime: total,
         },
-        data: daily,
+        data: dailyByProfile,
       };
     } catch (error) {
       return { success: false, error: String(error) };

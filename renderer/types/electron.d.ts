@@ -1,6 +1,6 @@
 // Type definitions for Electron API exposed via preload script
 import type { AppConfig, Profile, ProfilePrompt, Job, Generation, CallAOutput, CallBOutput } from '@shared/types';
-import type { DailyGenerationCount } from '../../main/db/generationsDao';
+import type { DailyGenerationCountByProfile } from '../../main/db/generationsDao';
 
 export interface ElectronAPI {
   // App info
@@ -32,6 +32,12 @@ export interface ElectronAPI {
   profilesUpdate: (profileId: string, data: Partial<{ name: string; rules_text: string; base_resume_text: string; template_html: string; is_default: boolean }>) => Promise<{ success: boolean; profile?: Profile; error?: string }>;
   profilesSetDefault: (profileId: string) => Promise<{ success: boolean; error?: string }>;
   profilesArchive: (profileId: string) => Promise<{ success: boolean; error?: string }>;
+  profilesDownload: (profileId: string) => Promise<{
+    success: boolean;
+    canceled?: boolean;
+    path?: string;
+    error?: string;
+  }>;
   profilePromptsList: (profileId: string) => Promise<{ success: boolean; prompts?: ProfilePrompt[]; error?: string }>;
   profilePromptsCreate: (data: { profile_id: string; name: string; prompt_text: string }) => Promise<{ success: boolean; prompt?: ProfilePrompt; error?: string }>;
   profilePromptsUpdate: (promptId: string, data: Partial<{ name: string; prompt_text: string }>) => Promise<{ success: boolean; prompt?: ProfilePrompt; error?: string }>;
@@ -81,7 +87,7 @@ export interface ElectronAPI {
     success: boolean;
     error?: string;
     summary?: { today: number; last7Days: number; last30Days: number; allTime: number };
-    data?: DailyGenerationCount[];
+    data?: DailyGenerationCountByProfile[];
   }>;
 
   // Generations

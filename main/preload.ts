@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { AppConfig, Profile, ProfilePrompt, Job, Generation } from '@shared/types';
-import type { DailyGenerationCount } from './db/generationsDao';
+import type { DailyGenerationCountByProfile } from './db/generationsDao';
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -48,6 +48,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('profiles:setDefault', profileId) as Promise<{ success: boolean; error?: string }>,
   profilesArchive: (profileId: string) =>
     ipcRenderer.invoke('profiles:archive', profileId) as Promise<{ success: boolean; error?: string }>,
+  profilesDownload: (profileId: string) =>
+    ipcRenderer.invoke('profiles:download', profileId) as Promise<{
+      success: boolean;
+      canceled?: boolean;
+      path?: string;
+      error?: string;
+    }>,
   profilesValidate: (data: { rules_text: string; template_html: string }) =>
     ipcRenderer.invoke('profiles:validate', data) as Promise<{ success: boolean; valid?: boolean; errors?: string[]; error?: string }>,
 
@@ -98,7 +105,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       success: boolean;
       error?: string;
       summary?: { today: number; last7Days: number; last30Days: number; allTime: number };
-      data?: DailyGenerationCount[];
+      data?: DailyGenerationCountByProfile[];
     }>,
 
   // Generations
