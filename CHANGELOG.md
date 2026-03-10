@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor** (x.Y.0): New features (e.g. QA, multi-profile). Backward compatible.
 - **Major** (X.0.0): Breaking API or data changes.
 
+## [1.8.1] - 2026-03-10
+
+### Added
+- **Generate screen**
+  - When the pasted job description clearly states a **hybrid** or **on-site/office-based** role (e.g. “on-site”, “onsite”, “office-based”, “in-office”, “hybrid work”), a confirmation warning is shown before tailoring begins.
+  - The confirmation dialog lets the user **cancel** to avoid tailoring for non-remote roles by mistake, or **continue** to run the generation as usual.
+
+### Changed
+- No backend, IPC, or database changes; the work-arrangement check is implemented entirely in the Generate screen UI and does not alter pipeline behavior.
+
+### Documentation
+- Feature doc: `docs/features/JD_WORK_ARRANGEMENT_WARNING_2026-03-10.md`.
+- Feature index: `docs/FEATURES.md` updated with JD Work Arrangement Warning entry.
+
 ## [1.8.0] - 2026-03-06
 
 ### Added

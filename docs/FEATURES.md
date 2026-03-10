@@ -23,6 +23,7 @@ Feature documentation is organized by feature name in the `features/` subdirecto
 - **[Generate Screen & App Layout Improvements](./features/GENERATE_UI_LAYOUT_2026-02-25.md)** ✅ - Custom Prompt dropdown, full-width layouts (Generate, History, Settings, Changelog), full-width taller Generate button (v1.1.0)
 - **[QA Feature](./features/QA_FEATURE_2026-02-16.md)** ✅ - Questions & Answers PDF generation (v0.2.0)
  - **[History Retry & QA from History](./features/HISTORY_RETRY_AND_QA_FROM_HISTORY_2026-03-05.md)** ✅ - Retry/regenerate from history cards and QA-only answers using existing tailored resume + JD (v1.7.0)
+ - **[JD Work Arrangement Warning](./features/JD_WORK_ARRANGEMENT_WARNING_2026-03-10.md)** ✅ - Confirm before tailoring when JD explicitly states hybrid/on-site/office-based work; no prompt when work arrangement is unclear or remote-only (v1.8.1)
 
 ### Planned/In Progress Features
 - **[Multi-Profile Generation](./features/MULTI_PROFILE_GENERATION_2026-02-16.md)** 📋 - Select multiple profiles and generate one tailored resume per profile
@@ -60,4 +61,4 @@ Each feature document should include:
 
 ---
 
-Last updated: 2026-03-06 (v1.8.0 – Analytics stacked bar by profile)
+Last updated: 2026-03-10 (v1.8.1 – JD work arrangement warning)

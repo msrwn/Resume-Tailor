@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Profile, ProfilePrompt, Job, CallAOutput, CallBOutput } from '@shared/types';
 import { GenerateProfilesSelector } from '../components/GenerateProfilesSelector';
 import { GenerateTaskTabs } from '../components/GenerateTaskTabs';
+import { useModal } from '../context/ModalContext';
 
 /** Custom dropdown for prompt selection so we can control option height and styling. */
 function PromptSelect({
@@ -157,6 +158,7 @@ function initTaskState(): Record<number, TaskState> {
 function GenerateScreen() {
   const [taskState, setTaskState] = useState<Record<number, TaskState>>(initTaskState);
   const [activeTaskIndex, setActiveTaskIndex] = useState(1);
+  const { confirm } = useModal();
 
   // Root-level: profile selection and config
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -332,9 +334,46 @@ function GenerateScreen() {
       .filter((q) => q.length > 0);
   };
 
+  const detectWorkArrangement = (jdText: string): 'remote' | 'hybrid_or_onsite' | 'unclear' => {
+    const text = jdText.toLowerCase();
+
+    const hasHybrid =
+      text.includes('hybrid') ||
+      text.includes('hybrid work') ||
+      text.includes('hybrid role');
+    const hasOnsite =
+      text.includes('on-site') ||
+      text.includes('onsite') ||
+      text.includes('office-based') ||
+      text.includes('office based') ||
+      text.includes('in-office') ||
+      text.includes('in office');
+    const hasRemote =
+      text.includes('remote') ||
+      text.includes('work from home') ||
+      text.includes('wfh') ||
+      text.includes('fully remote') ||
+      text.includes('100% remote');
+
+    if (hasHybrid || hasOnsite) return 'hybrid_or_onsite';
+    if (hasRemote) return 'remote';
+    return 'unclear';
+  };
+
   const handleGenerate = async () => {
     if (!canGenerate || !activeTask) return;
     const taskIndex = activeTaskIndex;
+
+    const workArrangement = detectWorkArrangement(activeTask.jdText);
+
+    if (workArrangement === 'hybrid_or_onsite') {
+      const proceed = await confirm(
+        'Warning: This job description mentions hybrid or office-based/on-site work. Do you still want to continue tailoring for this position?'
+      );
+      if (!proceed) {
+        return;
+      }
+    }
 
     updateTaskState(taskIndex, {
       loading: true,
