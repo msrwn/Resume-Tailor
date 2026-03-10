@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor** (x.Y.0): New features (e.g. QA, multi-profile). Backward compatible.
 - **Major** (X.0.0): Breaking API or data changes.
 
+## [1.8.2] - 2026-03-10
+
+### Fixed
+- **History screen**
+  - Keyword search now also scans generation folder fields (`role_folder`, `company_folder`, `profile_folder`), so searches like “Team lead” that match only the folder names return the expected history cards.
+
+### Documentation
+- Feature doc: `docs/features/HISTORY_SEARCH_FOLDER_FIELDS_2026-03-10.md`.
+- Feature index: `docs/FEATURES.md` updated with History Search Folder Fields entry.
+
 ## [1.8.1] - 2026-03-10
 
 ### Added
@@ -309,6 +319,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **1.8.2** (2026-03-10): History search folder fields – History keyword search also scans generation folder fields (role, company, profile) to better align with DB queries and output folder names.
 - **1.8.0** (2026-03-06): Analytics stacked bar by profile – per-day chart stacked by profile with legend, segment tooltips, and daily table with per-profile count/percentage.
 - **1.7.0** (2026-03-05): History retry & QA from History – retry/regenerate from history cards and QA-only answers using existing tailored resume + JD; icon actions and Generate/Profiles alignment polish.
 - **1.5.2** (2026-03-03): History card Other Info – manual notes per application (add/edit, persisted per generation).

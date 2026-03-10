@@ -435,6 +435,9 @@ ipcMain.handle('history:list', (_event, query?: HistoryListQuery) => {
         if (job.contact_email) haystacks.push(job.contact_email);
         if (job.contact_phone) haystacks.push(job.contact_phone);
         if (job.source_url) haystacks.push(job.source_url);
+        if (generation.role_folder) haystacks.push(generation.role_folder);
+        if (generation.company_folder) haystacks.push(generation.company_folder);
+        if (generation.profile_folder) haystacks.push(generation.profile_folder);
         if (generation.notes) haystacks.push(generation.notes);
         if (profileName) haystacks.push(profileName);
         if (promptName) haystacks.push(promptName);
