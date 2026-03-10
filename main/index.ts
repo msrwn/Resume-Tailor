@@ -394,31 +394,72 @@ ipcMain.handle('jobs:updateExtraction', (_event, jobId: string, data: Parameters
 });
 
 // History IPC handlers
-type HistoryListQuery = Parameters<typeof jobsDao.searchJobs>[0] & { profile_id?: string };
+type HistoryListQuery = {
+  keyword?: string;
+  profile_id?: string;
+  fromDate?: string;
+  toDate?: string;
+  limit?: number;
+  offset?: number;
+};
+
 ipcMain.handle('history:list', (_event, query?: HistoryListQuery) => {
   try {
-    const { profile_id: profileId, ...searchQuery } = query || {};
-    const { keyword, ...jobQuery } = searchQuery as HistoryListQuery & { keyword?: string };
-    const jobs = jobsDao.searchJobs(jobQuery);
+    const { profile_id: profileId, keyword, fromDate, toDate, limit, offset } = query || {};
+
+    const effectiveLimit = typeof limit === 'number' && limit > 0 ? limit : 50;
+    const effectiveOffset = typeof offset === 'number' && offset >= 0 ? offset : 0;
+
+    // Fetch a single page of generations so history scales to large datasets.
+    const { rows: pageGenerations, hasMore } = generationsDao.getGenerationsPage({
+      profileId: profileId || undefined,
+      fromDate,
+      toDate,
+      keyword: keyword && keyword.trim() ? keyword : undefined,
+      limit: effectiveLimit,
+      offset: effectiveOffset,
+    });
+
     const byGeneration: Array<{
-      job: typeof jobs[0];
+      job: import('../shared/types').Job;
       generation: import('../shared/types').Generation;
       profileName: string | null;
       promptName: string | null;
     }> = [];
-    for (const job of jobs) {
-      const generations = generationsDao.getGenerationsForJob(job.job_id);
-      for (const generation of generations) {
-        if (profileId != null && generation.profile_id !== profileId) continue;
-        const profile = profilesDao.getProfile(generation.profile_id);
-        const prompt = generation.prompt_id ? profilePromptsDao.getPrompt(generation.prompt_id) : null;
-        byGeneration.push({
-          job,
-          generation,
-          profileName: profile?.name ?? null,
-          promptName: prompt?.name ?? null,
-        });
-      }
+
+    for (const generation of pageGenerations) {
+      const job = jobsDao.getJob(generation.job_id);
+      const profile = profilesDao.getProfile(generation.profile_id);
+      const prompt = generation.prompt_id ? profilePromptsDao.getPrompt(generation.prompt_id) : null;
+
+      // If the job record is missing (e.g. from older DBs), synthesize a minimal
+      // job object so the history card can still render sensible information.
+      const jobForHistory =
+        job ??
+        ({
+          job_id: generation.job_id,
+          created_at: generation.created_at,
+          jd_text: '',
+          jd_hash: '',
+          source_url: null,
+          company_name: generation.company_folder ?? null,
+          job_title: generation.role_folder ?? null,
+          job_type: null,
+          budget: null,
+          required_tech_stack: null,
+          job_description_clean: null,
+          contact_email: null,
+          contact_phone: null,
+          follow_up_links_json: null,
+          contact_source_text: null,
+        } as import('../shared/types').Job);
+
+      byGeneration.push({
+        job: jobForHistory,
+        generation,
+        profileName: profile?.name ?? null,
+        promptName: prompt?.name ?? null,
+      });
     }
 
     // When a keyword is provided, filter across additional fields (JD text, contact, notes, profile/prompt, etc.).
@@ -449,7 +490,7 @@ ipcMain.handle('history:list', (_event, query?: HistoryListQuery) => {
       (a, b) =>
         new Date(b.generation.created_at).getTime() - new Date(a.generation.created_at).getTime()
     );
-    return { success: true, results: filtered };
+    return { success: true, results: filtered, hasMore };
   } catch (error) {
     return { success: false, error: String(error) };
   }

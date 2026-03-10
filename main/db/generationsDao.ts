@@ -143,6 +143,121 @@ export function getGenerationsForJob(jobId: string): Generation[] {
 }
 
 /**
+ * Get all generations, newest first.
+ * Used by history views to build a complete list of applications.
+ */
+export function getAllGenerations(): Generation[] {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT * FROM generations
+    ORDER BY created_at DESC
+  `);
+  return stmt.all() as Generation[];
+}
+
+/**
+ * Get a single page of generations for history listing.
+ * Results are ordered newest-first and filtered by optional profile/date/keyword.
+ * Uses limit+1 paging so callers can know if more rows exist.
+ *
+ * NOTE: Keyword filtering is pushed down into SQL so we don't page over the
+ * full dataset and then filter in memory (which can otherwise drop matches
+ * that fall outside the first page).
+ */
+export function getGenerationsPage(params: {
+  profileId?: string;
+  fromDate?: string;
+  toDate?: string;
+  keyword?: string;
+  limit: number;
+  offset: number;
+}): { rows: Generation[]; hasMore: boolean } {
+  const db = getDatabase();
+
+  // We request one extra row so we can compute hasMore without a separate COUNT(*).
+  const pageLimit = params.limit + 1;
+
+  let sql = `
+    SELECT * FROM generations
+    WHERE 1=1
+  `;
+  const args: unknown[] = [];
+
+  if (params.profileId) {
+    sql += ` AND profile_id = ?`;
+    args.push(params.profileId);
+  }
+
+  if (params.fromDate) {
+    sql += ` AND created_at >= ?`;
+    args.push(params.fromDate);
+  }
+
+  if (params.toDate) {
+    sql += ` AND created_at <= ?`;
+    args.push(params.toDate);
+  }
+
+  const trimmedKeyword =
+    typeof params.keyword === 'string' ? params.keyword.trim().toLowerCase() : '';
+
+  if (trimmedKeyword) {
+    const like = `%${trimmedKeyword}%`;
+    // Filter on common text fields directly in generations, and also via a
+    // subquery on the related jobs row so we can match company / role / JD.
+    sql += `
+      AND (
+        lower(company_folder) LIKE ?
+        OR lower(role_folder) LIKE ?
+        OR lower(profile_folder) LIKE ?
+        OR lower(COALESCE(notes, '')) LIKE ?
+        OR EXISTS (
+          SELECT 1
+          FROM jobs j
+          WHERE j.job_id = generations.job_id
+            AND (
+              lower(COALESCE(j.company_name, '')) LIKE ?
+              OR lower(COALESCE(j.job_title, '')) LIKE ?
+              OR lower(COALESCE(j.jd_text, '')) LIKE ?
+              OR lower(COALESCE(j.job_description_clean, '')) LIKE ?
+              OR lower(COALESCE(j.contact_email, '')) LIKE ?
+              OR lower(COALESCE(j.contact_phone, '')) LIKE ?
+              OR lower(COALESCE(j.source_url, '')) LIKE ?
+            )
+        )
+      )
+    `;
+    args.push(
+      like, // company_folder
+      like, // role_folder
+      like, // profile_folder
+      like, // notes
+      like, // jobs.company_name
+      like, // jobs.job_title
+      like, // jobs.jd_text
+      like, // jobs.job_description_clean
+      like, // jobs.contact_email
+      like, // jobs.contact_phone
+      like // jobs.source_url
+    );
+  }
+
+  sql += `
+    ORDER BY created_at DESC
+    LIMIT ? OFFSET ?
+  `;
+  args.push(pageLimit, params.offset);
+
+  const stmt = db.prepare(sql);
+  const results = stmt.all(...args) as Generation[];
+
+  const hasMore = results.length > params.limit;
+  const rows = hasMore ? results.slice(0, params.limit) : results;
+
+  return { rows, hasMore };
+}
+
+/**
  * Update generation with file paths.
  */
 export function updateGenerationPaths(

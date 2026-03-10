@@ -90,6 +90,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('history:list', query) as Promise<{
       success: boolean;
       results?: Array<{ job: Job; generation: Generation | null; profileName: string | null }>;
+      hasMore?: boolean;
       error?: string;
     }>,
   historyGetCounts: () =>

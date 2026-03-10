@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { Job, Generation, Profile } from '@shared/types';
 import { useModal } from '../context/ModalContext';
+import { HistorySearchBar } from '../components/HistorySearchBar';
+import { HistoryResults } from '../components/HistoryResults';
 
 type HistoryResult = {
   job: Job;
@@ -47,6 +49,21 @@ function HistoryScreen() {
   } | null>(null);
   const [qaError, setQaError] = useState<string | null>(null);
 
+  // Pagination state for history results.
+  const PAGE_SIZE = 50;
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentQuery, setCurrentQuery] = useState<
+    | {
+        keyword?: string;
+        profile_id?: string;
+        fromDate?: string;
+        toDate?: string;
+      }
+    | undefined
+  >(undefined);
+  const [nextOffset, setNextOffset] = useState(0);
+
   // Task IDs reserved for history flows so we don't collide with GenerateScreen's 1..10.
   const HISTORY_RETRY_TASK_ID = 101;
   const HISTORY_QA_TASK_ID = 102;
@@ -75,12 +92,12 @@ function HistoryScreen() {
           saved.customFrom ?? '',
           saved.customTo ?? ''
         );
-        loadHistory(initialQuery);
+        loadHistory(initialQuery, saved.searchQuery ?? '');
       } else {
-        loadHistory();
+        loadHistory(undefined, '');
       }
     } catch {
-      loadHistory();
+      loadHistory(undefined, '');
     }
     loadCounts();
   }, []);
@@ -107,6 +124,26 @@ function HistoryScreen() {
         const listResponse = await window.electronAPI.profilesList();
         if (listResponse.success && listResponse.profiles) {
           setProfiles(listResponse.profiles);
+
+          // If a previously selected profile filter no longer exists in the DB
+          // (for example after swapping databases), clear the filter so it
+          // doesn't hide all history results.
+          if (profileFilterId) {
+            const stillExists = listResponse.profiles.some(
+              (p) => p.profile_id === profileFilterId
+            );
+            if (!stillExists) {
+              setProfileFilterId('');
+              const query = buildSearchQuery(
+                searchQuery,
+                '',
+                dateRange,
+                customFrom,
+                customTo
+              );
+              loadHistory(query, searchQuery);
+            }
+          }
         }
       } catch {
         setProfiles([]);
@@ -146,30 +183,125 @@ function HistoryScreen() {
     }
   };
 
-  const loadHistory = async (query?: {
-    keyword?: string;
-    company_name?: string;
-    job_title?: string;
-    profile_id?: string;
-    fromDate?: string;
-    toDate?: string;
-  }) => {
+  const loadHistory = async (
+    query?: {
+      keyword?: string;
+      profile_id?: string;
+      fromDate?: string;
+      toDate?: string;
+    },
+    keywordFilter?: string
+  ) => {
+    // Initial load for a given filter set (reset results and offset).
+    const effectiveQuery = query ?? currentQuery;
+    setCurrentQuery(effectiveQuery);
     setLoading(true);
+    setIsLoadingMore(false);
     setError(null);
+    setNextOffset(0);
     try {
-      const response = await window.electronAPI.historyList(query);
+      const response = await window.electronAPI.historyList({
+        ...(effectiveQuery ?? {}),
+        limit: PAGE_SIZE,
+        offset: 0,
+      });
       if (response.success && response.results) {
-        setResults(response.results);
+        let nextResults = response.results;
+
+        // Extra client-side keyword filter as a safety net in case the
+        // backend keyword filter isn't applied for some combinations.
+        const trimmed = (keywordFilter ?? '').trim().toLowerCase();
+        if (trimmed) {
+          nextResults = nextResults.filter(({ job, generation, profileName, promptName }) => {
+            const haystacks: string[] = [];
+            if (job.company_name) haystacks.push(job.company_name);
+            if (job.job_title) haystacks.push(job.job_title);
+            if (job.jd_text) haystacks.push(job.jd_text);
+            if (job.job_description_clean) haystacks.push(job.job_description_clean);
+            if (job.contact_email) haystacks.push(job.contact_email);
+            if (job.contact_phone) haystacks.push(job.contact_phone);
+            if (job.source_url) haystacks.push(job.source_url);
+            if (generation?.role_folder) haystacks.push(generation.role_folder);
+            if (generation?.company_folder) haystacks.push(generation.company_folder);
+            if (generation?.profile_folder) haystacks.push(generation.profile_folder);
+            if (generation?.notes) haystacks.push(generation.notes);
+            if (profileName) haystacks.push(profileName);
+            if (promptName) haystacks.push(promptName);
+            return haystacks.some((text) => text.toLowerCase().includes(trimmed));
+          });
+        }
+
+        setResults(nextResults);
+        setHasMore(Boolean(response.hasMore));
+        setNextOffset(PAGE_SIZE);
       } else {
         setError(response.error || 'Failed to load history');
+        setResults([]);
+        setHasMore(false);
+        setNextOffset(0);
       }
     } catch (err) {
       setError('Failed to load history');
+      setResults([]);
+      setHasMore(false);
+      setNextOffset(0);
       console.error(err);
     } finally {
       setLoading(false);
     }
     loadCounts();
+  };
+
+  const loadMoreHistory = async () => {
+    if (!hasMore || isLoadingMore) return;
+    setIsLoadingMore(true);
+    setError(null);
+    try {
+      const response = await window.electronAPI.historyList({
+        ...(currentQuery ?? {}),
+        limit: PAGE_SIZE,
+        offset: nextOffset,
+      });
+      if (response.success && response.results) {
+        const appended = [...results, ...response.results];
+
+        const trimmed = searchQuery.trim().toLowerCase();
+        const filtered = trimmed
+          ? appended.filter(({ job, generation, profileName, promptName }) => {
+              const haystacks: string[] = [];
+              if (job.company_name) haystacks.push(job.company_name);
+              if (job.job_title) haystacks.push(job.job_title);
+              if (job.jd_text) haystacks.push(job.jd_text);
+              if (job.job_description_clean) haystacks.push(job.job_description_clean);
+              if (job.contact_email) haystacks.push(job.contact_email);
+              if (job.contact_phone) haystacks.push(job.contact_phone);
+              if (job.source_url) haystacks.push(job.source_url);
+              if (generation?.role_folder) haystacks.push(generation.role_folder);
+              if (generation?.company_folder) haystacks.push(generation.company_folder);
+              if (generation?.profile_folder) haystacks.push(generation.profile_folder);
+              if (generation?.notes) haystacks.push(generation.notes);
+              if (profileName) haystacks.push(profileName);
+              if (promptName) haystacks.push(promptName);
+              return haystacks.some((text) => text.toLowerCase().includes(trimmed));
+            })
+          : appended;
+
+        setResults(filtered);
+        setHasMore(Boolean(response.hasMore));
+        setNextOffset(nextOffset + PAGE_SIZE);
+      } else if (response.error) {
+        setError(response.error);
+        setHasMore(false);
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Failed to load history');
+      setHasMore(false);
+    } finally {
+      setIsLoadingMore(false);
+    }
   };
 
   const buildSearchQuery = (
@@ -225,7 +357,10 @@ function HistoryScreen() {
 
   const handleSearch = () => {
     const query = buildSearchQuery(searchQuery, profileFilterId, dateRange, customFrom, customTo);
-    loadHistory(query);
+    // When no filters are active (e.g. "All time" with empty search/profile),
+    // explicitly pass an empty query object so we clear any stale filters
+    // instead of reusing the last query.
+    loadHistory(query ?? {}, searchQuery);
   };
 
   const handleClear = () => {
@@ -234,12 +369,8 @@ function HistoryScreen() {
     setDateRange('all');
     setCustomFrom('');
     setCustomTo('');
-    loadHistory();
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    // Force a fully unfiltered reload rather than reusing the previous query.
+    loadHistory({}, '');
   };
 
   const startEditingNotes = (generationId: string, currentNotes: string | null) => {
@@ -423,408 +554,68 @@ function HistoryScreen() {
       setQaError('Failed to generate answers');
     }
   };
-
   return (
     <div className="history-screen">
       <h1>History</h1>
-      {counts !== null && (
-        <p className="history-stats">
-          <span className="history-stat-total">{counts.total} resume{counts.total !== 1 ? 's' : ''} generated in total</span>
-          <span className="history-stat-sep"> · </span>
-          <span className="history-stat-today">{counts.today} today</span>
-        </p>
-      )}
 
-      <div className="history-search">
-        <input
-          type="text"
-          placeholder="Search by company, role, or keywords..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-          className="search-input"
-        />
-        <select
-          className="history-profile-filter"
-          value={profileFilterId}
-          onChange={(e) => { setProfileFilterId(e.target.value); }}
-          title="Filter by profile"
-        >
-          <option value="">All profiles</option>
-          {profiles.map((p) => (
-            <option key={p.profile_id} value={p.profile_id}>{p.name}</option>
-          ))}
-        </select>
-        <select
-          className="history-date-filter"
-          value={dateRange}
-          onChange={(e) =>
-            setDateRange(e.target.value as 'all' | 'today' | '7d' | '30d' | 'custom')
-          }
-          title="Filter by date"
-        >
-          <option value="all">All time</option>
-          <option value="today">Today</option>
-          <option value="7d">Last 7 days</option>
-          <option value="30d">Last 30 days</option>
-          <option value="custom">Custom range</option>
-        </select>
-        {dateRange === 'custom' && (
-          <div className="history-date-custom-group">
-            <input
-              type="date"
-              className="history-date-custom"
-              value={customFrom}
-              onChange={(e) => setCustomFrom(e.target.value)}
-              title="From date"
-            />
-            <input
-              type="date"
-              className="history-date-custom"
-              value={customTo}
-              onChange={(e) => setCustomTo(e.target.value)}
-              title="To date"
-            />
-          </div>
-        )}
-        <button onClick={handleSearch} className="button-primary">
-          Search
-        </button>
-        <button onClick={handleClear} className="button-secondary">
-          Clear
-        </button>
-      </div>
+      <HistorySearchBar
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        profileFilterId={profileFilterId}
+        onProfileFilterChange={setProfileFilterId}
+        profiles={profiles}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
+        customFrom={customFrom}
+        onCustomFromChange={setCustomFrom}
+        customTo={customTo}
+        onCustomToChange={setCustomTo}
+        onSearch={handleSearch}
+        onClear={handleClear}
+      />
 
-      {error && <div className="message message-error">{error}</div>}
-
-      {!loading && results.length > 0 && (
-        <div className="history-result-count">
-          Showing {results.length} result{results.length !== 1 ? 's' : ''} for current filters
-        </div>
-      )}
-
-      {loading ? (
-        <div className="screen-placeholder">
-          <p>Loading history...</p>
-        </div>
-      ) : results.length === 0 ? (
-        <div className="screen-placeholder">
-          <h2>No applications found</h2>
-          <p>Your application history will appear here after generating resumes.</p>
-        </div>
-      ) : (
-        <div className="history-grid">
-          {results.map(({ job, generation, profileName, promptName }) => (
-            <div key={generation?.generation_id ?? job.job_id} className="history-item">
-              <div className="history-item-header">
-                <div className="history-item-title">
-                  {editingJobId === job.job_id ? (
-                    <>
-                      <input
-                        type="text"
-                        className="history-item-company-input"
-                        value={jobDraftCompany}
-                        onChange={(e) => setJobDraftCompany(e.target.value)}
-                        placeholder="Company name"
-                      />
-                      <input
-                        type="text"
-                        className="history-item-role-input"
-                        value={jobDraftTitle}
-                        onChange={(e) => setJobDraftTitle(e.target.value)}
-                        placeholder="Role title"
-                      />
-                      <div
-                        className="history-item-edit-header-actions"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => saveJobEdits(job.job_id)}
-                          className="button-icon button-icon-save"
-                          aria-label="Save header changes"
-                        >
-                          ✓
-                        </button>
-                        <button
-                          type="button"
-                          onClick={cancelEditingJob}
-                          className="button-icon button-icon-cancel"
-                          aria-label="Cancel header edit"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <h3>{job.company_name || 'Unknown Company'}</h3>
-                      <span className="history-item-role">{job.job_title || 'Unknown Role'}</span>
-                    </>
-                  )}
-                  {profileName && (
-                    <span className="history-item-profile">Profile: {profileName}</span>
-                  )}
-                  {promptName && (
-                    <span className="history-item-prompt">Prompt: {promptName}</span>
-                  )}
-                </div>
-                <div className="history-item-meta">
-                  <span className="history-item-date">{formatDate(job.created_at)}</span>
-                  {editingJobId !== job.job_id && (
-                    <button
-                      type="button"
-                      onClick={() => startEditingJob(job)}
-                      className="button-link history-item-edit-header"
-                      aria-label="Edit header"
-                    >
-                      ✎
-                    </button>
-                  )}
-                  {generation && (
-                    <span className={`status-badge status-${generation.status}`}>
-                      {generation.status}
-                    </span>
-                  )}
-                </div>
-              </div>
-              {job.contact_email && (
-                <div className="history-item-contact">
-                  <strong>Contact:</strong> {job.contact_email}
-                  {job.contact_phone && ` | ${job.contact_phone}`}
-                </div>
-              )}
-              {generation && (
-                <div className="history-item-notes">
-                  {editingNotesId === generation.generation_id ? (
-                    <>
-                      <label className="history-item-notes-label">Other Info</label>
-                      <textarea
-                        className="history-item-notes-input"
-                        value={notesDraft}
-                        onChange={(e) => setNotesDraft(e.target.value)}
-                        placeholder="Add notes about this application..."
-                        rows={3}
-                        autoFocus
-                      />
-                      <div className="history-item-notes-actions">
-                        <button
-                          type="button"
-                          onClick={() => saveNotes(generation.generation_id)}
-                          className="button-primary"
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          onClick={cancelEditingNotes}
-                          className="button-secondary"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      {(generation.notes ?? '').trim() ? (
-                        <div className="history-item-notes-text">
-                          <span className="history-item-notes-label">Other Info:</span>{' '}
-                          {generation.notes}
-                        </div>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => startEditingNotes(generation.generation_id, generation.notes)}
-                        className="button-link history-item-notes-toggle"
-                      >
-                        {(generation.notes ?? '').trim() ? 'Edit' : 'Other Info'}
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
-              {generation && generation.output_dir && (
-                <div className="history-item-actions">
-                  {job.source_url && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          const res = await window.electronAPI.filesOpenUrl(job.source_url!);
-                          if (!res.success) await modal.alert(res.error || 'Failed to open link');
-                        } catch (err) {
-                          console.error('Failed to open URL:', err);
-                          await modal.alert('Failed to open link');
-                        }
-                      }}
-                      className="button-link"
-                      aria-label="Open job posting"
-                    >
-                      🔗
-                    </button>
-                  )}
-                  <button
-                    onClick={async () => {
-                      try {
-                        await window.electronAPI.filesOpenFolder(generation!.output_dir!);
-                      } catch (err) {
-                        console.error('Failed to open folder:', err);
-                        await modal.alert('Failed to open folder');
-                      }
-                    }}
-                    className="button-link"
-                    style={job.source_url ? { marginLeft: '12px' } : undefined}
-                  >
-                    📁
-                  </button>
-                  {generation.resume_pdf_path && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          await window.electronAPI.filesOpenFile(generation!.resume_pdf_path!);
-                        } catch (err) {
-                          console.error('Failed to open file:', err);
-                          await modal.alert('Failed to open file');
-                        }
-                      }}
-                      className="button-link"
-                      style={{ marginLeft: '12px' }}
-                    >
-                      📄
-                    </button>
-                  )}
-                  {generation.cover_pdf_path && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          await window.electronAPI.filesOpenFile(generation!.cover_pdf_path!);
-                        } catch (err) {
-                          console.error('Failed to open file:', err);
-                          await modal.alert('Failed to open file');
-                        }
-                      }}
-                      className="button-link"
-                      style={{ marginLeft: '12px' }}
-                    >
-                      ✉
-                    </button>
-                  )}
-                  {generation.qa_pdf_path && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          await window.electronAPI.filesOpenFile(generation!.qa_pdf_path!);
-                        } catch (err) {
-                          console.error('Failed to open file:', err);
-                          await modal.alert('Failed to open file');
-                        }
-                      }}
-                      className="button-link"
-                      style={{ marginLeft: '12px' }}
-                      aria-label="Open answers PDF"
-                    >
-                      💡
-                    </button>
-                  )}
-                  {generation && (
-                    <button
-                      onClick={() => handleRetry(job, generation)}
-                      className="button-link"
-                      style={{ marginLeft: '12px' }}
-                      disabled={retryingGenerationId === generation.generation_id}
-                      aria-label="Retry generation"
-                    >
-                      ⟳
-                    </button>
-                  )}
-                  {generation && generation.status === 'success' && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setQaEditingGenerationId(generation.generation_id);
-                        setQaQuestionsDraft('');
-                        setQaError(null);
-                      }}
-                      className="button-link history-item-qa-toggle"
-                      style={{ marginLeft: '12px' }}
-                      aria-label="Answer the questions"
-                    >
-                      ❓
-                    </button>
-                  )}
-                </div>
-              )}
-              {generation && generation.status === 'success' && (
-                <div className="history-item-qa">
-                  {qaEditingGenerationId === generation.generation_id && (
-                    <>
-                      <label className="history-item-qa-label">Questions for this job</label>
-                      <textarea
-                        className="history-item-qa-input"
-                        value={qaQuestionsDraft}
-                        onChange={(e) => setQaQuestionsDraft(e.target.value)}
-                        placeholder="Enter questions (one per line or as a numbered/bulleted list)..."
-                        rows={8}
-                      />
-                      {qaQuestionsDraft.trim() && (
-                        <div className="history-item-qa-count">
-                          {parseQuestions(qaQuestionsDraft).length} question
-                          {parseQuestions(qaQuestionsDraft).length !== 1 ? 's' : ''} entered
-                        </div>
-                      )}
-                      {qaError && (
-                        <div className="message message-error" style={{ marginTop: '8px' }}>
-                          {qaError}
-                        </div>
-                      )}
-                      <div className="history-item-qa-actions">
-                        <button
-                          type="button"
-                          onClick={() => handleGenerateAnswers(generation)}
-                          className="button-primary"
-                          disabled={qaLoadingGenerationId === generation.generation_id}
-                        >
-                          {qaLoadingGenerationId === generation.generation_id ? 'Generating…' : 'Generate'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setQaEditingGenerationId(null);
-                            setQaQuestionsDraft('');
-                            setQaError(null);
-                          }}
-                          className="button-secondary"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </>
-                  )}
-                  {qaLoadingGenerationId === generation.generation_id && qaProgress && (
-                    <div className="history-item-qa-progress">
-                      <div className="progress-bar">
-                        <div className="progress-fill" style={{ width: `${qaProgress.percent}%` }} />
-                      </div>
-                      <p className="progress-message">{qaProgress.message}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-              {retryingGenerationId === generation?.generation_id && retryProgress && (
-                <div className="history-item-retry-progress">
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${retryProgress.percent}%` }} />
-                  </div>
-                  <p className="progress-message">{retryProgress.message}</p>
-                  {retryError && (
-                    <div className="message message-error" style={{ marginTop: '8px' }}>
-                      {retryError}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      <HistoryResults
+        results={results}
+        loading={loading}
+        error={error}
+        counts={counts}
+        hasMore={hasMore}
+        isLoadingMore={isLoadingMore}
+        onLoadMore={loadMoreHistory}
+        editingNotesId={editingNotesId}
+        notesDraft={notesDraft}
+        onStartEditingNotes={startEditingNotes}
+        onCancelEditingNotes={cancelEditingNotes}
+        onSaveNotes={saveNotes}
+        editingJobId={editingJobId}
+        jobDraftCompany={jobDraftCompany}
+        jobDraftTitle={jobDraftTitle}
+        onStartEditingJob={startEditingJob}
+        onCancelEditingJob={cancelEditingJob}
+        onSaveJobEdits={saveJobEdits}
+        retryingGenerationId={retryingGenerationId}
+        retryProgress={retryProgress}
+        retryError={retryError}
+        onRetry={handleRetry}
+        qaEditingGenerationId={qaEditingGenerationId}
+        qaQuestionsDraft={qaQuestionsDraft}
+        qaLoadingGenerationId={qaLoadingGenerationId}
+        qaProgress={qaProgress}
+        qaError={qaError}
+        onQaQuestionsDraftChange={setQaQuestionsDraft}
+        onStartQaEditing={(generationId) => {
+          setQaEditingGenerationId(generationId);
+          setQaQuestionsDraft('');
+          setQaError(null);
+        }}
+        onCancelQaEditing={() => {
+          setQaEditingGenerationId(null);
+          setQaQuestionsDraft('');
+          setQaError(null);
+        }}
+        onGenerateAnswers={handleGenerateAnswers}
+        parseQuestions={parseQuestions}
+      />
     </div>
   );
 }

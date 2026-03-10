@@ -76,6 +76,7 @@ export interface ElectronAPI {
   }) => Promise<{
     success: boolean;
     results?: Array<{ job: Job; generation: Generation | null; profileName: string | null; promptName: string | null }>;
+    hasMore?: boolean;
     error?: string;
   }>;
   historyGetCounts: () => Promise<{ success: boolean; total?: number; today?: number; error?: string }>;
