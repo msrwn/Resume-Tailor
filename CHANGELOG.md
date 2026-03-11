@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor** (x.Y.0): New features (e.g. QA, multi-profile). Backward compatible.
 - **Major** (X.0.0): Breaking API or data changes.
 
+## [1.8.4] - 2026-03-11
+
+### Changed
+- Placeholder release – update this section with the actual changes for 1.8.4 (see `docs/features/RELEASE_1_8_4_2026-03-11.md`).
+
+### Documentation
+- Feature doc: `docs/features/RELEASE_1_8_4_2026-03-11.md` (placeholder; fill in and rename as needed).
+- Feature index: `docs/FEATURES.md` updated with Release 1.8.4 entry.
+
 ## [1.8.3] - 2026-03-10
 
 ### Fixed
@@ -329,6 +338,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **1.8.4** (2026-03-11): Placeholder – update with actual release summary.
 - **1.8.3** (2026-03-10): History search date range fix – History keyword search now behaves consistently for All time / 7d / 30d ranges by pushing keyword filtering into the paged DB query.
 - **1.8.2** (2026-03-10): History search folder fields – History keyword search also scans generation folder fields (role, company, profile) to better align with DB queries and output folder names.
 - **1.8.0** (2026-03-06): Analytics stacked bar by profile – per-day chart stacked by profile with legend, segment tooltips, and daily table with per-profile count/percentage.

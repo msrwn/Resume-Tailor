@@ -26,6 +26,7 @@ Feature documentation is organized by feature name in the `features/` subdirecto
 - **[JD Work Arrangement Warning](./features/JD_WORK_ARRANGEMENT_WARNING_2026-03-10.md)** ✅ - Confirm before tailoring when JD explicitly states hybrid/on-site/office-based work; no prompt when work arrangement is unclear or remote-only (v1.8.1)
 - **[History Search Folder Fields](./features/HISTORY_SEARCH_FOLDER_FIELDS_2026-03-10.md)** ✅ - History keyword search also scans generation folder fields (role, company, profile) to better align with DB queries and output folder names (v1.8.2)
 - **[History Search Date Range Fix](./features/HISTORY_SEARCH_DATE_RANGE_FIX_2026-03-10.md)** ✅ - Fix History keyword search so All time / 7d / 30d ranges correctly honour the keyword on first search by pushing filtering into the paged DB query (v1.8.3)
+- **[Release 1.8.4](./features/RELEASE_1_8_4_2026-03-11.md)** ✅ - Placeholder; update feature doc with actual changes (v1.8.4)
 
 ### Planned/In Progress Features
 - **[Multi-Profile Generation](./features/MULTI_PROFILE_GENERATION_2026-02-16.md)** 📋 - Select multiple profiles and generate one tailored resume per profile
@@ -63,4 +64,4 @@ Each feature document should include:
 
 ---
 
-Last updated: 2026-03-10 (v1.8.3 – History search date range fix)
+Last updated: 2026-03-11 (v1.8.4 – release doc workflow)
