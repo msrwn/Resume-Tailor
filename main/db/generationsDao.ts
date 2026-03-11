@@ -1,6 +1,7 @@
 import { getDatabase } from './database';
 import { randomUUID } from 'crypto';
-import type { Generation } from '../../shared/types';
+import type { Generation, Job } from '../../shared/types';
+import * as jobsDao from './jobsDao';
 
 export type DailyGenerationCount = {
   date: string;
@@ -153,6 +154,57 @@ export function getAllGenerations(): Generation[] {
     ORDER BY created_at DESC
   `);
   return stmt.all() as Generation[];
+}
+
+/**
+ * Find the latest successful generation for a given job URL and profile.
+ * Used to warn when the user is about to tailor the same posting again for
+ * the same profile on the Generate screen.
+ *
+ * Matching rules:
+ * - Match by jobs.source_url (case-sensitive) after trimming whitespace and
+ *   treating a trailing slash as optional.
+ * - Only consider generations where status = 'success' and profile_id matches.
+ */
+export function findLatestSuccessfulGenerationForUrlAndProfile(params: {
+  sourceUrl: string;
+  profileId: string;
+}): { job: Job; generation: Generation } | null {
+  const db = getDatabase();
+
+  const raw = params.sourceUrl.trim();
+  if (!raw) return null;
+
+  // Treat trailing slash as optional for matching.
+  const normalized = raw.endsWith('/') ? raw.slice(0, -1) : raw;
+  const withSlash = `${normalized}/`;
+
+  const stmt = db.prepare(`
+    SELECT g.generation_id, g.job_id
+    FROM generations g
+    JOIN jobs j ON j.job_id = g.job_id
+    WHERE g.status = 'success'
+      AND g.profile_id = ?
+      AND (
+        j.source_url = ?
+        OR j.source_url = ?
+      )
+    ORDER BY g.created_at DESC
+    LIMIT 1
+  `);
+
+  const row = stmt.get(params.profileId, normalized, withSlash) as
+    | { generation_id: string; job_id: string }
+    | undefined;
+
+  if (!row) return null;
+
+  const generation = getGeneration(row.generation_id);
+  const job = jobsDao.getJob(row.job_id);
+
+  if (!generation || !job) return null;
+
+  return { job, generation };
 }
 
 /**

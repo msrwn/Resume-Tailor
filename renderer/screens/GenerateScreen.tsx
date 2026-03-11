@@ -132,6 +132,7 @@ type TaskState = {
   result: RunResult;
   error: string | null;
   errorDetail: string | null;
+  hasExistingRunForUrlAndProfile?: boolean;
 };
 
 function getTaskStorageKey(taskIndex: number, field: 'jdText' | 'sourceUrl' | 'questions'): string {
@@ -150,6 +151,7 @@ function initTaskState(): Record<number, TaskState> {
       result: null,
       error: null,
       errorDetail: null,
+      hasExistingRunForUrlAndProfile: false,
     };
   }
   return state;
@@ -301,6 +303,21 @@ function GenerateScreen() {
     outputPathSet &&
     apiKeySet &&
     !activeTask.loading;
+
+  const handleClearInputs = () => {
+    const current = taskState[activeTaskIndex];
+    if (!current || current.loading) return;
+
+    updateTaskState(activeTaskIndex, {
+      jdText: '',
+      sourceUrl: '',
+      questions: '',
+    });
+
+    localStorage.removeItem(getTaskStorageKey(activeTaskIndex, 'jdText'));
+    localStorage.removeItem(getTaskStorageKey(activeTaskIndex, 'sourceUrl'));
+    localStorage.removeItem(getTaskStorageKey(activeTaskIndex, 'questions'));
+  };
 
   const selectProfile = (profileId: string) => {
     setSelectedProfileId(profileId);
@@ -551,6 +568,20 @@ function GenerateScreen() {
                 >
                   {activeTask.loading ? 'Generating…' : 'Generate resume & cover letter'}
                 </button>
+                <button
+                  type="button"
+                  className="button-secondary generate-toolbar-button"
+                  onClick={handleClearInputs}
+                  disabled={
+                    activeTask.loading ||
+                    (!activeTask.sourceUrl.trim() &&
+                      !activeTask.jdText.trim() &&
+                      !activeTask.questions.trim())
+                  }
+                  style={{ marginLeft: '8px' }}
+                >
+                  Clear inputs
+                </button>
               </div>
             </div>
 
@@ -563,8 +594,34 @@ function GenerateScreen() {
               placeholder="https://..."
               value={activeTask.sourceUrl}
               onChange={(e) => updateTaskState(activeTaskIndex, { sourceUrl: e.target.value })}
+              onBlur={async (e) => {
+                const url = e.target.value.trim();
+                if (!url || !selectedProfileId) {
+                  updateTaskState(activeTaskIndex, { hasExistingRunForUrlAndProfile: false });
+                  return;
+                }
+                try {
+                  const res = await window.electronAPI.generationFindLatestForUrlAndProfile({
+                    sourceUrl: url,
+                    profileId: selectedProfileId,
+                  });
+                  if (res.success && res.generation) {
+                    updateTaskState(activeTaskIndex, { hasExistingRunForUrlAndProfile: true });
+                  } else {
+                    updateTaskState(activeTaskIndex, { hasExistingRunForUrlAndProfile: false });
+                  }
+                } catch {
+                  updateTaskState(activeTaskIndex, { hasExistingRunForUrlAndProfile: false });
+                }
+              }}
               disabled={activeTask.loading}
             />
+            {activeTask.hasExistingRunForUrlAndProfile && (
+              <div className="field-help generate-url-warning">
+                You’ve already tailored for this job with this profile. You can still generate again
+                if you want.
+              </div>
+            )}
 
             <label>
               Job description <span className="required">*</span>

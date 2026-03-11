@@ -127,6 +127,12 @@ export interface ElectronAPI {
     error?: string;
     rawResponse?: string;
   }>;
+  generationFindLatestForUrlAndProfile: (params: { sourceUrl: string; profileId: string }) => Promise<{
+    success: boolean;
+    job?: Job | null;
+    generation?: Generation | null;
+    error?: string;
+  }>;
   onGenerationProgress: (callback: (data: { taskId?: number; step: string; message: string; percent: number }) => void) => () => void;
   filesOpenFolder: (folderPath: string) => Promise<{ success: boolean; error?: string }>;
   filesOpenFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;

@@ -151,6 +151,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
       error?: string;
       rawResponse?: string;
     }>,
+  generationFindLatestForUrlAndProfile: (params: { sourceUrl: string; profileId: string }) =>
+    ipcRenderer.invoke('generation:findLatestForUrlAndProfile', params) as Promise<{
+      success: boolean;
+      job?: Job | null;
+      generation?: Generation | null;
+      error?: string;
+    }>,
   onGenerationProgress: (callback: (data: { taskId?: number; step: string; message: string; percent: number }) => void) => {
     const handler = (_: unknown, data: { taskId?: number; step: string; message: string; percent: number }) => callback(data);
     ipcRenderer.on('generation:progress', handler);
@@ -246,6 +253,12 @@ export type ElectronAPI = {
     qaPdfPath?: string | null;
     error?: string;
     rawResponse?: string;
+  }>;
+  generationFindLatestForUrlAndProfile: (params: { sourceUrl: string; profileId: string }) => Promise<{
+    success: boolean;
+    job?: Job | null;
+    generation?: Generation | null;
+    error?: string;
   }>;
   onGenerationProgress: (callback: (data: { taskId?: number; step: string; message: string; percent: number }) => void) => () => void;
   filesOpenFolder: (folderPath: string) => Promise<{ success: boolean; error?: string }>;

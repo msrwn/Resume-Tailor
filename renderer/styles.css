@@ -570,6 +570,11 @@ button:disabled {
   color: #e74c3c;
 }
 
+.generate-url-warning {
+  margin-top: 4px;
+  color: #e67e22;
+}
+
 .generate-url-input {
   width: 100%;
   padding: 10px 12px;
