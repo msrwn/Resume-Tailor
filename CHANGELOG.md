@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor** (x.Y.0): New features (e.g. QA, multi-profile). Backward compatible.
 - **Major** (X.0.0): Breaking API or data changes.
 
+## [1.8.5] - 2026-03-11
+
+### Changed
+- **Generate screen**
+  - Profile selector is now a compact dropdown instead of a vertical radio list.
+
+### Documentation
+- Feature doc: `docs/features/GENERATE_PROFILE_SELECTOR_DROPDOWN_2026-03-11.md`.
+
 ## [1.8.4] - 2026-03-11
 
 ### Changed
@@ -338,6 +347,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **1.8.5** (2026-03-11): Generate profile selector dropdown – Generate screen profile selector is now a dropdown (single-profile behavior unchanged).
 - **1.8.4** (2026-03-11): Placeholder – update with actual release summary.
 - **1.8.3** (2026-03-10): History search date range fix – History keyword search now behaves consistently for All time / 7d / 30d ranges by pushing keyword filtering into the paged DB query.
 - **1.8.2** (2026-03-10): History search folder fields – History keyword search also scans generation folder fields (role, company, profile) to better align with DB queries and output folder names.

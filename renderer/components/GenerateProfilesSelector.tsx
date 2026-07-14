@@ -18,25 +18,30 @@ export function GenerateProfilesSelector({
   return (
     <div className="generate-form generate-form-root">
       <div className="generate-profiles-row">
-        <label className="generate-profiles-label">Profiles</label>
+        <label className="generate-profiles-label" htmlFor="generate-profile-select">
+          Profile
+        </label>
         <div className="generate-profiles-list">
-          <ul className="generate-profile-checkboxes">
+          <select
+            id="generate-profile-select"
+            className="history-profile-filter"
+            value={selectedProfileId ?? ''}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value) {
+                onSelectProfile(value);
+              }
+            }}
+          >
+            <option value="" disabled>
+              Select a profile…
+            </option>
             {profiles.map((p) => (
-              <li key={p.profile_id}>
-                <label className="generate-profile-checkbox-label">
-                  <input
-                    type="radio"
-                    name="generate-profile"
-                    checked={selectedProfileId === p.profile_id}
-                    onChange={() => onSelectProfile(p.profile_id)}
-                  />
-                  <span>
-                    {p.name} {p.is_default ? '(default)' : ''}
-                  </span>
-                </label>
-              </li>
+              <option key={p.profile_id} value={p.profile_id}>
+                {p.name} {p.is_default ? '(default)' : ''}
+              </option>
             ))}
-          </ul>
+          </select>
         </div>
       </div>
       {(!outputPathSet || !apiKeySet) && (
